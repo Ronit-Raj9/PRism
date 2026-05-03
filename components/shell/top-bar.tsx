@@ -4,12 +4,10 @@ import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { GitPullRequest, Moon, PanelLeft, Sun } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
-import { SavedSwitcher, type SavedItem } from "@/components/saved-switcher";
 import { SaveButton } from "@/components/save-button";
 
 interface Props {
   username: string;
-  savedList: SavedItem[];
   initiallySaved: boolean;
   cacheState: "fresh" | "stale" | "miss";
   fetchedAt: string;
@@ -19,7 +17,6 @@ interface Props {
 
 export function TopBar({
   username,
-  savedList,
   initiallySaved,
   cacheState,
   fetchedAt,
@@ -27,17 +24,17 @@ export function TopBar({
   onToggleSidebar,
 }: Props) {
   return (
-    <header className="z-30 flex h-12 shrink-0 items-center gap-3 border-b border-neutral-200 bg-white px-3 dark:border-neutral-800 dark:bg-neutral-950">
+    <header className="z-30 flex h-12 shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-800 dark:bg-neutral-950">
       <button
         onClick={onToggleSidebar}
         title="Toggle sidebar (B)"
-        className="rounded p-1.5 text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        className="rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
       >
         <PanelLeft size={16} />
       </button>
       <Link
         href="/"
-        className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
+        className="mr-1 flex items-center gap-1.5 text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
       >
         <GitPullRequest size={14} className="text-violet-500" />
         GitScope
@@ -51,7 +48,6 @@ export function TopBar({
         rateRemaining={rateRemaining}
       />
       <SaveButton username={username} initialSaved={initiallySaved} />
-      <SavedSwitcher items={savedList} />
       <ThemeToggle />
     </header>
   );
@@ -72,15 +68,22 @@ function CacheChip({
       : state === "stale"
         ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
         : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200";
-  const label = state === "fresh" ? "Cached" : state === "stale" ? "Stale" : "Live";
+  const dot =
+    state === "fresh"
+      ? "bg-emerald-500"
+      : state === "stale"
+        ? "bg-amber-500"
+        : "bg-blue-500";
+  const label = state === "fresh" ? "Fresh" : state === "stale" ? "Stale" : "Live";
   const title =
     `Fetched ${fetchedAt}` +
     (rateRemaining !== null ? ` · GitHub rate limit: ${rateRemaining}` : "");
   return (
     <span
       title={title}
-      className={`hidden rounded-full px-2 py-0.5 text-[10px] font-medium md:inline-block ${cls}`}
+      className={`hidden items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium md:inline-flex ${cls}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
   );
@@ -113,7 +116,7 @@ function ThemeToggle() {
     <button
       onClick={toggle}
       title={dark ? "Switch to light" : "Switch to dark"}
-      className="rounded p-1.5 text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+      className="rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
     >
       {dark ? <Sun size={16} /> : <Moon size={16} />}
     </button>

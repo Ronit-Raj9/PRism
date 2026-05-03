@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { html as diff2htmlHtml } from "diff2html";
 import { ColorSchemeType } from "diff2html/lib/types";
+import { FileWarning } from "lucide-react";
 import type { PRFile, ReviewCommentNode } from "@/types/github";
 import type { DisplayMode } from "./pr-toolbar";
+import { isLikelyBinary } from "./binary";
 
 interface Props {
   panelRef: React.RefObject<HTMLDivElement | null>;
@@ -20,6 +22,11 @@ interface Props {
   onActiveFileChange: (path: string | null) => void;
 }
 
+// Approximate skeleton height per file before it enters the viewport. Big
+// enough that the user can't easily scroll past N unrendered files at once,
+// small enough that we don't blow up the scrollbar.
+const PLACEHOLDER_HEIGHT_PX = 320;
+
 export function PRDiffPanel({
   panelRef,
   sectionRefs,
@@ -32,16 +39,50 @@ export function PRDiffPanel({
   reviewCommentsByPath,
   onActiveFileChange,
 }: Props) {
-  // IntersectionObserver tracks which file is currently most visible so the
-  // file tree can highlight it and ◀▶ knows where to start.
+  // Track which files are near the viewport so we render their diff. This is
+  // what keeps a 39-file PR from slamming the renderer with thousands of
+  // syntax-highlighted lines on first paint.
+  const [renderedSet, setRenderedSet] = useState<Set<string>>(() => new Set());
+
   useEffect(() => {
     const scroller = panelRef.current;
     if (!scroller || files.length === 0) return;
 
-    const observer = new IntersectionObserver(
+    const visibilityObserver = new IntersectionObserver(
       (entries) => {
-        // Pick the entry whose top is closest to (just below) the scroller's
-        // top edge.
+        let nextAdded: string[] | null = null;
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const path = (e.target as HTMLElement).dataset.path;
+          if (!path) continue;
+          if (!nextAdded) nextAdded = [];
+          nextAdded.push(path);
+        }
+        if (nextAdded && nextAdded.length > 0) {
+          setRenderedSet((prev) => {
+            let changed = false;
+            const next = new Set(prev);
+            for (const p of nextAdded!) {
+              if (!next.has(p)) {
+                next.add(p);
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
+        }
+      },
+      {
+        root: scroller,
+        // Render a screen ahead and a screen behind so quick scrolls feel
+        // instant.
+        rootMargin: "1200px 0px 1200px 0px",
+        threshold: 0,
+      },
+    );
+
+    const activeObserver = new IntersectionObserver(
+      (entries) => {
         let bestPath: string | null = null;
         let bestTop = -Infinity;
         for (const e of entries) {
@@ -65,9 +106,15 @@ export function PRDiffPanel({
 
     for (const path of sectionRefs.current?.keys() ?? []) {
       const el = sectionRefs.current?.get(path);
-      if (el) observer.observe(el);
+      if (el) {
+        visibilityObserver.observe(el);
+        activeObserver.observe(el);
+      }
     }
-    return () => observer.disconnect();
+    return () => {
+      visibilityObserver.disconnect();
+      activeObserver.disconnect();
+    };
   }, [files, onActiveFileChange, panelRef, sectionRefs]);
 
   if (loading) {
@@ -109,6 +156,7 @@ export function PRDiffPanel({
           file={f}
           displayMode={displayMode}
           isViewed={viewed.has(f.path)}
+          shouldRender={renderedSet.has(f.path)}
           onToggleViewed={() => onToggleViewed(f.path)}
           comments={reviewCommentsByPath.get(f.path) ?? []}
           register={(el) => {
@@ -125,6 +173,7 @@ function FileSection({
   file,
   displayMode,
   isViewed,
+  shouldRender,
   onToggleViewed,
   comments,
   register,
@@ -132,16 +181,31 @@ function FileSection({
   file: PRFile;
   displayMode: DisplayMode;
   isViewed: boolean;
+  shouldRender: boolean;
   onToggleViewed: () => void;
   comments: ReviewCommentNode[];
   register: (el: HTMLDivElement | null) => void;
 }) {
+  const isBinary = useMemo(() => isLikelyBinary(file.path, file.patch), [
+    file.path,
+    file.patch,
+  ]);
+
   return (
-    <div ref={register} data-path={file.path} className="border-b border-neutral-200 dark:border-neutral-800">
+    <div
+      ref={register}
+      data-path={file.path}
+      className="border-b border-neutral-200 dark:border-neutral-800"
+    >
       <div className="pr-file-hdr flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] dark:border-neutral-800 dark:bg-neutral-900">
         <span className="truncate font-mono text-neutral-700 dark:text-neutral-300">
           {file.path}
         </span>
+        {isBinary ? (
+          <span className="shrink-0 rounded bg-neutral-200 px-1 py-0.5 text-[9px] font-medium uppercase text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+            binary
+          </span>
+        ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {file.additions > 0 ? (
             <span className="text-emerald-600 dark:text-emerald-400">
@@ -167,6 +231,15 @@ function FileSection({
       {isViewed ? (
         <div className="bg-neutral-50 px-3 py-2 text-[11px] italic text-neutral-500 dark:bg-neutral-900/40">
           Marked as viewed. Uncheck to expand.
+        </div>
+      ) : isBinary ? (
+        <BinaryNotice file={file} />
+      ) : !shouldRender ? (
+        <div
+          className="flex items-center justify-center bg-neutral-50/50 text-[11px] italic text-neutral-400 dark:bg-neutral-900/20"
+          style={{ minHeight: PLACEHOLDER_HEIGHT_PX }}
+        >
+          Loading diff…
         </div>
       ) : (
         <FileDiffBody file={file} displayMode={displayMode} />
@@ -198,6 +271,32 @@ function FileSection({
   );
 }
 
+function BinaryNotice({ file }: { file: PRFile }) {
+  const filename = file.path.split("/").pop() ?? file.path;
+  return (
+    <div className="flex items-center gap-3 bg-neutral-50/60 px-3 py-4 text-[11.5px] text-neutral-600 dark:bg-neutral-900/40 dark:text-neutral-400">
+      <FileWarning size={14} className="shrink-0 text-amber-500" />
+      <div>
+        <div className="font-medium text-neutral-800 dark:text-neutral-200">
+          {filename}
+        </div>
+        <div className="mt-0.5 text-neutral-500">
+          Binary file —{" "}
+          {file.status === "added"
+            ? "added"
+            : file.status === "removed"
+              ? "removed"
+              : "modified"}
+          {file.additions || file.deletions
+            ? ` (${file.additions || 0} add / ${file.deletions || 0} del bytes)`
+            : ""}
+          . Inline diff is not meaningful.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FileDiffBody({
   file,
   displayMode,
@@ -205,32 +304,32 @@ function FileDiffBody({
   file: PRFile;
   displayMode: DisplayMode;
 }) {
-  if (!file.patch) {
+  const html = useMemo(() => {
+    if (!file.patch) return null;
+    const diffHeader = [
+      `diff --git a/${file.path} b/${file.path}`,
+      file.status === "added"
+        ? `--- /dev/null\n+++ b/${file.path}`
+        : file.status === "removed"
+          ? `--- a/${file.path}\n+++ /dev/null`
+          : `--- a/${file.path}\n+++ b/${file.path}`,
+    ].join("\n");
+    const fullDiff = `${diffHeader}\n${file.patch}`;
+    return diff2htmlHtml(fullDiff, {
+      drawFileList: false,
+      matching: "lines",
+      outputFormat: displayMode === "split" ? "side-by-side" : "line-by-line",
+      colorScheme: ColorSchemeType.AUTO,
+    });
+  }, [file.path, file.patch, file.status, displayMode]);
+
+  if (!html) {
     return (
       <div className="px-3 py-2 text-[11px] italic text-neutral-500">
-        No diff available (binary file or too large).
+        No diff available (file too large).
       </div>
     );
   }
-
-  // diff2html needs a complete unified-diff header; PR file API gives only
-  // the hunk patch, so synthesise minimal "diff --git" + index lines.
-  const diffHeader = [
-    `diff --git a/${file.path} b/${file.path}`,
-    file.status === "added"
-      ? `--- /dev/null\n+++ b/${file.path}`
-      : file.status === "removed"
-        ? `--- a/${file.path}\n+++ /dev/null`
-        : `--- a/${file.path}\n+++ b/${file.path}`,
-  ].join("\n");
-  const fullDiff = `${diffHeader}\n${file.patch}`;
-
-  const html = diff2htmlHtml(fullDiff, {
-    drawFileList: false,
-    matching: "lines",
-    outputFormat: displayMode === "split" ? "side-by-side" : "line-by-line",
-    colorScheme: ColorSchemeType.AUTO,
-  });
 
   return (
     <div

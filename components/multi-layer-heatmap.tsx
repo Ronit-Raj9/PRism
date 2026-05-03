@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
 import type { TimelineEvent } from "@/lib/timeline";
 import type { ContributionCalendar } from "@/types/github";
 
@@ -97,10 +98,33 @@ const LAYERS: LayerDef[] = [
       "bg-neutral-500 dark:bg-neutral-500",
       "bg-neutral-700 dark:bg-neutral-300",
     ],
-    // commits are not in our event stream — handled via calendar fallback
     match: () => false,
   },
 ];
+
+interface DayBreakdown {
+  prs_opened: number;
+  prs_merged: number;
+  prs_closed: number;
+  issues_opened: number;
+  issues_closed: number;
+  reviews: number;
+  comments: number;
+  commits: number;
+}
+
+function emptyBreakdown(): DayBreakdown {
+  return {
+    prs_opened: 0,
+    prs_merged: 0,
+    prs_closed: 0,
+    issues_opened: 0,
+    issues_closed: 0,
+    reviews: 0,
+    comments: 0,
+    commits: 0,
+  };
+}
 
 interface Props {
   events: TimelineEvent[];
@@ -109,26 +133,79 @@ interface Props {
 
 export function MultiLayerHeatmap({ events, calendar }: Props) {
   const [active, setActive] = useState<LayerId>("prs_merged");
+  const [hover, setHover] = useState<{
+    date: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const breakdownByDate = useMemo(() => {
+    const map = new Map<string, DayBreakdown>();
+    for (const e of events) {
+      const date = e.at.toISOString().slice(0, 10);
+      let b = map.get(date);
+      if (!b) {
+        b = emptyBreakdown();
+        map.set(date, b);
+      }
+      switch (e.kind) {
+        case "PR_OPENED":
+          b.prs_opened++;
+          break;
+        case "PR_MERGED":
+          b.prs_merged++;
+          break;
+        case "PR_CLOSED":
+          b.prs_closed++;
+          break;
+        case "ISSUE_OPENED":
+          b.issues_opened++;
+          break;
+        case "ISSUE_CLOSED":
+          b.issues_closed++;
+          break;
+        case "REVIEW_GIVEN":
+        case "REVIEW_COMMENT":
+          b.reviews++;
+          break;
+        case "PR_COMMENT":
+        case "ISSUE_COMMENT":
+          b.comments++;
+          break;
+      }
+    }
+    for (const w of calendar.weeks) {
+      for (const d of w.days) {
+        let b = map.get(d.date);
+        if (!b) {
+          b = emptyBreakdown();
+          map.set(d.date, b);
+        }
+        b.commits = d.count;
+      }
+    }
+    return map;
+  }, [events, calendar]);
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    if (active === "commits") {
-      // Use GitHub's contribution calendar (commit-weighted) for the commits layer.
-      for (const w of calendar.weeks) {
-        for (const d of w.days) {
-          map.set(d.date, d.count);
-        }
-      }
-      return map;
-    }
-    const layer = LAYERS.find((l) => l.id === active)!;
-    for (const e of events) {
-      if (!layer.match(e)) continue;
-      const date = e.at.toISOString().slice(0, 10);
-      map.set(date, (map.get(date) ?? 0) + 1);
+    for (const [date, b] of breakdownByDate) {
+      const v =
+        active === "prs_opened"
+          ? b.prs_opened
+          : active === "prs_merged"
+            ? b.prs_merged
+            : active === "issues"
+              ? b.issues_opened
+              : active === "reviews"
+                ? b.reviews
+                : active === "comments"
+                  ? b.comments
+                  : b.commits;
+      if (v > 0) map.set(date, v);
     }
     return map;
-  }, [events, calendar, active]);
+  }, [breakdownByDate, active]);
 
   const layer = LAYERS.find((l) => l.id === active)!;
   const max = useMemo(() => {
@@ -163,8 +240,27 @@ export function MultiLayerHeatmap({ events, calendar }: Props) {
     [counts],
   );
 
+  function showTooltip(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    const target = e.currentTarget.getBoundingClientRect();
+    const container = e.currentTarget
+      .closest("[data-heatmap-root]")
+      ?.getBoundingClientRect();
+    if (!container) return;
+    setHover({
+      date,
+      x: target.left - container.left + target.width / 2,
+      y: target.top - container.top,
+    });
+  }
+  function hideTooltip() {
+    setHover(null);
+  }
+
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <div
+      data-heatmap-root
+      className="relative rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+    >
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold">Activity heatmap</h3>
         <span className="text-xs text-neutral-500">
@@ -193,14 +289,14 @@ export function MultiLayerHeatmap({ events, calendar }: Props) {
         <div className="flex flex-col gap-1">
           <div className="flex gap-[3px] pl-7 text-[10px] text-neutral-500">
             {calendar.weeks.map((_, i) => {
-              const label = monthLabels.find((m) => m.weekIndex === i);
+              const labelEntry = monthLabels.find((m) => m.weekIndex === i);
               return (
                 <div
                   key={i}
                   className="w-[10px] shrink-0 text-left"
                   style={{ minWidth: "10px" }}
                 >
-                  {label && i > 0 ? label.month : ""}
+                  {labelEntry && i > 0 ? labelEntry.month : ""}
                 </div>
               );
             })}
@@ -219,14 +315,19 @@ export function MultiLayerHeatmap({ events, calendar }: Props) {
               <div key={i} className="flex flex-col gap-[3px]">
                 {Array.from({ length: 7 }).map((_, dayIdx) => {
                   const d = w.days[dayIdx];
-                  if (!d) return <div key={dayIdx} className="h-[10px] w-[10px]" />;
+                  if (!d)
+                    return (
+                      <div key={dayIdx} className="h-[10px] w-[10px]" />
+                    );
                   const c = counts.get(d.date) ?? 0;
                   return (
                     <div
                       key={dayIdx}
-                      title={`${d.date}: ${c} ${layer.label.toLowerCase()}`}
+                      data-date={d.date}
+                      onMouseEnter={(e) => showTooltip(e, d.date)}
+                      onMouseLeave={hideTooltip}
                       className={clsx(
-                        "h-[10px] w-[10px] rounded-[2px]",
+                        "h-[10px] w-[10px] cursor-pointer rounded-[2px] transition-shadow hover:ring-2 hover:ring-blue-400",
                         layer.levels[level(c)],
                       )}
                     />
@@ -245,6 +346,120 @@ export function MultiLayerHeatmap({ events, calendar }: Props) {
         ))}
         <span>More</span>
       </div>
+
+      {hover ? (
+        <HeatmapTooltip
+          date={hover.date}
+          x={hover.x}
+          y={hover.y}
+          breakdown={breakdownByDate.get(hover.date) ?? emptyBreakdown()}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function HeatmapTooltip({
+  date,
+  x,
+  y,
+  breakdown,
+}: {
+  date: string;
+  x: number;
+  y: number;
+  breakdown: DayBreakdown;
+}) {
+  const total =
+    breakdown.prs_opened +
+    breakdown.prs_merged +
+    breakdown.prs_closed +
+    breakdown.issues_opened +
+    breakdown.issues_closed +
+    breakdown.reviews +
+    breakdown.comments;
+
+  const lines: { label: string; value: number; cls: string }[] = [];
+  if (breakdown.prs_opened)
+    lines.push({
+      label: "PRs opened",
+      value: breakdown.prs_opened,
+      cls: "text-emerald-700 dark:text-emerald-300",
+    });
+  if (breakdown.prs_merged)
+    lines.push({
+      label: "PRs merged",
+      value: breakdown.prs_merged,
+      cls: "text-violet-700 dark:text-violet-300",
+    });
+  if (breakdown.prs_closed)
+    lines.push({
+      label: "PRs closed",
+      value: breakdown.prs_closed,
+      cls: "text-rose-700 dark:text-rose-300",
+    });
+  if (breakdown.issues_opened)
+    lines.push({
+      label: "Issues filed",
+      value: breakdown.issues_opened,
+      cls: "text-amber-700 dark:text-amber-300",
+    });
+  if (breakdown.issues_closed)
+    lines.push({
+      label: "Issues closed",
+      value: breakdown.issues_closed,
+      cls: "text-amber-700 dark:text-amber-300",
+    });
+  if (breakdown.reviews)
+    lines.push({
+      label: "Reviews",
+      value: breakdown.reviews,
+      cls: "text-teal-700 dark:text-teal-300",
+    });
+  if (breakdown.comments)
+    lines.push({
+      label: "Comments",
+      value: breakdown.comments,
+      cls: "text-blue-700 dark:text-blue-300",
+    });
+  if (breakdown.commits)
+    lines.push({
+      label: "Commits (calendar)",
+      value: breakdown.commits,
+      cls: "text-neutral-700 dark:text-neutral-300",
+    });
+
+  return (
+    <div
+      role="tooltip"
+      className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-[11px] shadow-lg dark:border-neutral-700 dark:bg-neutral-950"
+      style={{ left: x, top: y - 6 }}
+    >
+      <div className="font-semibold">
+        {format(parseISO(date), "EEEE, MMM d, yyyy")}
+      </div>
+      {lines.length === 0 ? (
+        <div className="mt-0.5 text-neutral-500">No activity</div>
+      ) : (
+        <ul className="mt-1 space-y-0.5">
+          {lines.map((l) => (
+            <li key={l.label} className="flex items-center justify-between gap-3">
+              <span className={l.cls}>{l.label}</span>
+              <span className="font-mono tabular-nums text-neutral-700 dark:text-neutral-300">
+                {l.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {total > 0 ? (
+        <div className="mt-1 flex items-center justify-between gap-3 border-t border-neutral-200 pt-1 text-neutral-500 dark:border-neutral-800">
+          <span>Total events</span>
+          <span className="font-mono tabular-nums text-neutral-900 dark:text-neutral-100">
+            {total}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

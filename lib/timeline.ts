@@ -215,3 +215,22 @@ export function buildTimeline(
 export function uniqueRepos(events: TimelineEvent[]): string[] {
   return Array.from(new Set(events.map((e) => e.repo))).sort();
 }
+
+export interface OrgTally {
+  org: string;
+  count: number;
+}
+
+/**
+ * Organization tags derived from event ownerLogin values, sorted by event
+ * count (most active first). Used for the timeline org filter.
+ */
+export function uniqueOrgs(events: TimelineEvent[]): OrgTally[] {
+  const map = new Map<string, number>();
+  for (const e of events) {
+    map.set(e.ownerLogin, (map.get(e.ownerLogin) ?? 0) + 1);
+  }
+  return Array.from(map, ([org, count]) => ({ org, count })).sort(
+    (a, b) => b.count - a.count || a.org.localeCompare(b.org),
+  );
+}

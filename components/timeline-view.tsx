@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
+import type { PRNode } from "@/types/github";
 import type { TimelineEvent, EventKind } from "@/lib/timeline";
-import { uniqueRepos } from "@/lib/timeline";
+import { uniqueOrgs, uniqueRepos } from "@/lib/timeline";
 import { PRDetail } from "./pr-detail";
 import { CommentList, ReviewList } from "./comment-thread";
 import { MarkdownBody } from "./markdown-body";
@@ -29,10 +30,17 @@ export function TimelineView({ events }: Props) {
   const [enabledKinds, setEnabledKinds] = useState<Set<EventKind>>(
     () => new Set(KIND_GROUPS.flatMap((g) => g.id)),
   );
+  const [orgFilter, setOrgFilter] = useState<string>("");
   const [repoFilter, setRepoFilter] = useState<string>("");
   const [pageSize, setPageSize] = useState(100);
 
-  const repos = useMemo(() => uniqueRepos(events), [events]);
+  const orgs = useMemo(() => uniqueOrgs(events), [events]);
+  const repos = useMemo(() => {
+    const all = uniqueRepos(events);
+    if (!orgFilter) return all;
+    const prefix = `${orgFilter}/`.toLowerCase();
+    return all.filter((r) => r.toLowerCase().startsWith(prefix));
+  }, [events, orgFilter]);
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -53,11 +61,16 @@ export function TimelineView({ events }: Props) {
       if (!enabledKinds.has(e.kind)) return false;
       if (scope === "external" && !e.isExternal) return false;
       if (scope === "own" && e.isExternal) return false;
+      if (
+        orgFilter &&
+        e.ownerLogin.toLowerCase() !== orgFilter.toLowerCase()
+      )
+        return false;
       if (repoFilter && e.repo !== repoFilter) return false;
       if (cutoff && e.at.getTime() < cutoff.getTime()) return false;
       return true;
     });
-  }, [events, scope, dateRange, enabledKinds, repoFilter]);
+  }, [events, scope, dateRange, enabledKinds, orgFilter, repoFilter]);
 
   const visible = filtered.slice(0, pageSize);
 
@@ -98,6 +111,22 @@ export function TimelineView({ events }: Props) {
           ]}
         />
         <select
+          value={orgFilter}
+          onChange={(e) => {
+            setOrgFilter(e.target.value);
+            setRepoFilter(""); // reset repo when org changes
+          }}
+          className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+          title="Filter by organization (repo owner)"
+        >
+          <option value="">Any org ({orgs.length})</option>
+          {orgs.map((o) => (
+            <option key={o.org} value={o.org}>
+              {o.org} · {o.count}
+            </option>
+          ))}
+        </select>
+        <select
           value={repoFilter}
           onChange={(e) => setRepoFilter(e.target.value)}
           className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
@@ -114,6 +143,52 @@ export function TimelineView({ events }: Props) {
           {filtered.length === 1 ? "" : "s"}
         </div>
       </div>
+
+      {orgs.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+            Org
+          </span>
+          <button
+            onClick={() => {
+              setOrgFilter("");
+              setRepoFilter("");
+            }}
+            className={clsx(
+              "rounded-full border px-2.5 py-0.5 text-[11px] transition",
+              orgFilter === ""
+                ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+                : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+            )}
+          >
+            All
+          </button>
+          {orgs.slice(0, 12).map((o) => (
+            <button
+              key={o.org}
+              onClick={() => {
+                setOrgFilter(o.org);
+                setRepoFilter("");
+              }}
+              className={clsx(
+                "rounded-full border px-2.5 py-0.5 text-[11px] transition",
+                orgFilter === o.org
+                  ? "border-violet-500 bg-violet-500 text-white"
+                  : "border-neutral-300 bg-white text-neutral-700 hover:border-violet-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
+              )}
+              title={`${o.count} events`}
+            >
+              <span className="font-mono">{o.org}</span>
+              <span className="ml-1 text-[9px] opacity-70">{o.count}</span>
+            </button>
+          ))}
+          {orgs.length > 12 ? (
+            <span className="text-[10px] text-neutral-500">
+              +{orgs.length - 12} more in dropdown
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-1.5">
         {KIND_GROUPS.map((g) => {
@@ -274,6 +349,11 @@ function EventBody({ event }: { event: TimelineEvent }) {
           <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
             <MarkdownBody body={event.comment.body} />
           </div>
+          {event.kind === "PR_COMMENT" ? (
+            <div className="mt-3">
+              <PRJumpButton pr={event.pr} />
+            </div>
+          ) : null}
         </div>
       );
 
@@ -285,6 +365,9 @@ function EventBody({ event }: { event: TimelineEvent }) {
             {event.pr.title}
           </div>
           <ReviewList reviews={[event.review]} />
+          <div className="mt-3">
+            <PRJumpButton pr={event.pr} />
+          </div>
         </div>
       );
 
@@ -311,9 +394,31 @@ function EventBody({ event }: { event: TimelineEvent }) {
           <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
             <MarkdownBody body={event.reviewComment.body} />
           </div>
+          <div className="mt-3">
+            <PRJumpButton pr={event.pr} />
+          </div>
         </div>
       );
   }
+}
+
+function PRJumpButton({ pr }: { pr: PRNode }) {
+  // Resolve the current profile username from the URL so the button targets
+  // the in-app PR view rather than github.com.
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
+  const m = /^\/u\/([^/]+)/.exec(pathname);
+  const username = m?.[1] ?? pr.repo.ownerLogin;
+  const [owner, repo] = pr.repo.nameWithOwner.split("/");
+  return (
+    <a
+      href={`/u/${username}/pr/${owner}/${repo}/${pr.number}`}
+      className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+    >
+      View {pr.changedFiles} file change
+      {pr.changedFiles === 1 ? "" : "s"} →
+    </a>
+  );
 }
 
 function describe(event: TimelineEvent): { title: string } {

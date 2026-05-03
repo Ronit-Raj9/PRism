@@ -23,7 +23,7 @@ const ITEMS: { id: string; label: string; href: (u: string) => string; Icon: Luc
 ];
 
 export function SidebarNav({ username }: Props) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const base = `/u/${username}`;
 
   return (
@@ -31,7 +31,6 @@ export function SidebarNav({ username }: Props) {
       <ul className="space-y-0.5">
         {ITEMS.map(({ id, label, href, Icon }) => {
           const target = href(username);
-          // Active: exact match for overview; prefix for others (so /timeline/foo also lights).
           const active =
             id === "overview"
               ? pathname === base

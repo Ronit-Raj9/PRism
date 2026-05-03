@@ -154,7 +154,6 @@ export function AppShell({
     <div className="app-shell">
       <TopBar
         username={username}
-        savedList={savedList}
         initiallySaved={initiallySaved}
         cacheState={cacheState}
         fetchedAt={bundle.fetchedAt}

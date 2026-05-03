@@ -52,5 +52,13 @@ export default async function PRPage({ params }: PageProps) {
   const prev = idx > 0 ? toRef(repoPRs[idx - 1]) : null;
   const next = idx < repoPRs.length - 1 ? toRef(repoPRs[idx + 1]) : null;
 
-  return <PRView pr={pr} username={username} prev={prev} next={next} />;
+  return (
+    <PRView
+      key={`${repoKey}#${prNumber}`}
+      pr={pr}
+      username={username}
+      prev={prev}
+      next={next}
+    />
+  );
 }
