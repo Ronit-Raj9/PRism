@@ -1,120 +1,100 @@
 "use client";
 
-import { useState } from "react";
 import { format, parseISO } from "date-fns";
+import { usePathname } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import clsx from "clsx";
 import type { PRNode } from "@/types/github";
 import { MarkdownBody } from "./markdown-body";
 import { CommentList, ReviewList } from "./comment-thread";
-import { PRDiffViewer } from "./pr-diff-viewer";
 
-interface Props {
-  pr: PRNode;
-}
-
-type Section = "description" | "diff" | "discussion" | "reviews";
-
-export function PRDetail({ pr }: Props) {
-  const [section, setSection] = useState<Section>("diff");
+export function PRDetail({ pr }: { pr: PRNode }) {
+  const pathname = usePathname();
+  const m = /^\/u\/([^/]+)/.exec(pathname ?? "");
+  const username = m?.[1] ?? pr.repo.ownerLogin;
   const [owner, repo] = pr.repo.nameWithOwner.split("/");
-
-  const reviewCommentCount = pr.reviews.reduce((s, r) => s + r.comments.length, 0);
-  const allReviewComments = pr.reviews.flatMap((r) => r.comments);
-
-  const tabs: { id: Section; label: string; count?: number }[] = [
-    { id: "diff", label: "Diff", count: pr.changedFiles },
-    { id: "description", label: "Description" },
-    { id: "discussion", label: "Discussion", count: pr.comments.length },
-    { id: "reviews", label: "Reviews", count: pr.reviews.length + reviewCommentCount },
-  ];
-
   return (
     <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
-        <span>Opened {format(parseISO(pr.createdAt), "MMM d, yyyy")}</span>
-        {pr.mergedAt ? (
-          <span>· Merged {format(parseISO(pr.mergedAt), "MMM d, yyyy")}</span>
-        ) : null}
+      <div className="mb-3 flex flex-wrap items-baseline gap-3 text-xs">
+        <PRStatusBadge pr={pr} />
+        <span className="font-mono text-neutral-500">
+          {pr.repo.nameWithOwner}#{pr.number}
+        </span>
+        <span className="text-emerald-600 dark:text-emerald-400">
+          +{pr.additions.toLocaleString()}
+        </span>
+        <span className="text-rose-600 dark:text-rose-400">
+          −{pr.deletions.toLocaleString()}
+        </span>
+        <span className="text-neutral-500">
+          {pr.changedFiles} file{pr.changedFiles === 1 ? "" : "s"} ·{" "}
+          {pr.mergedAt
+            ? `merged ${format(parseISO(pr.mergedAt), "MMM d, yyyy")}`
+            : `opened ${format(parseISO(pr.createdAt), "MMM d, yyyy")}`}
+        </span>
+        <a
+          href={`/u/${username}/pr/${owner}/${repo}/${pr.number}`}
+          className="ml-auto inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Open diff view →
+        </a>
+      </div>
+
+      {pr.body ? (
+        <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
+          <MarkdownBody body={pr.body} />
+        </div>
+      ) : (
+        <p className="text-sm italic text-neutral-500">No description.</p>
+      )}
+
+      {pr.comments.length > 0 ? (
+        <div className="mt-3">
+          <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            {pr.comments.length} comment{pr.comments.length === 1 ? "" : "s"}
+          </h5>
+          <CommentList comments={pr.comments} />
+        </div>
+      ) : null}
+
+      {pr.reviews.length > 0 ? (
+        <div className="mt-3">
+          <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            {pr.reviews.length} review{pr.reviews.length === 1 ? "" : "s"}
+          </h5>
+          <ReviewList reviews={pr.reviews} />
+        </div>
+      ) : null}
+
+      <div className="mt-2 text-right">
         <a
           href={pr.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-auto text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+          className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
         >
-          Open on GitHub ↗
+          Open on GitHub <ExternalLink size={11} />
         </a>
-      </div>
-
-      <div className="mb-3 flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSection(t.id)}
-            className={clsx(
-              "px-3 py-1.5 text-xs font-medium transition",
-              section === t.id
-                ? "border-b-2 border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100"
-                : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200",
-            )}
-          >
-            {t.label}
-            {t.count !== undefined ? (
-              <span className="ml-1 text-neutral-500">{t.count}</span>
-            ) : null}
-          </button>
-        ))}
-      </div>
-
-      <div>
-        {section === "description" ? (
-          <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-            <MarkdownBody body={pr.body} />
-          </div>
-        ) : null}
-        {section === "diff" ? (
-          <PRDiffViewer
-            owner={owner}
-            repo={repo}
-            prNumber={pr.number}
-            reviewComments={allReviewComments}
-          />
-        ) : null}
-        {section === "discussion" ? (
-          pr.comments.length > 0 ? (
-            <CommentList comments={pr.comments} />
-          ) : (
-            <p className="text-sm italic text-neutral-500">No discussion comments.</p>
-          )
-        ) : null}
-        {section === "reviews" ? (
-          pr.reviews.length > 0 ? (
-            <ReviewList reviews={pr.reviews} />
-          ) : (
-            <p className="text-sm italic text-neutral-500">No reviews.</p>
-          )
-        ) : null}
       </div>
     </div>
   );
 }
 
 export function PRStatusBadge({ pr }: { pr: PRNode }) {
-  const map = {
-    OPEN: pr.isDraft
-      ? { label: "draft", cls: "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300" }
-      : { label: "open", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" },
-    MERGED: {
-      label: "merged",
-      cls: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
-    },
-    CLOSED: {
-      label: "closed",
-      cls: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
-    },
-  } as const;
-  const { label, cls } = map[pr.state];
+  const label = pr.state === "MERGED" ? "Merged" : pr.state === "OPEN" ? "Open" : "Closed";
+  const cls =
+    pr.state === "MERGED"
+      ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
+      : pr.state === "OPEN"
+        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+        : "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200";
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>
+    <span
+      className={clsx(
+        "rounded-full px-2 py-0.5 text-[10px] font-medium",
+        cls,
+      )}
+    >
       {label}
     </span>
   );

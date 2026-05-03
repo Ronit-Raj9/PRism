@@ -1,19 +1,37 @@
+import Link from "next/link";
 import { SearchBar } from "@/components/search-bar";
-import { SiteHeader } from "@/components/site-header";
+import { SavedSwitcher, type SavedItem } from "@/components/saved-switcher";
 import { listSaved } from "@/lib/saved";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const savedList = await listSaved();
+  const savedListRaw = await listSaved();
+  const savedList: SavedItem[] = savedListRaw.map((s) => ({
+    username: s.username,
+    label: s.label,
+    note: s.note,
+    lastVisitedAt: s.lastVisitedAt,
+  }));
   const hasSaved = savedList.length > 0;
 
-  // When there are saved profiles, show the site header (with switcher) and a
-  // compact landing. When this is a fresh install, keep the big hero.
   if (hasSaved) {
     return (
       <>
-        <SiteHeader savedList={savedList} />
+        <header className="border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-4 px-6 py-3">
+            <Link
+              href="/"
+              className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
+            >
+              GitScope
+            </Link>
+            <div className="flex-1">
+              <SearchBar />
+            </div>
+            <SavedSwitcher items={savedList} />
+          </div>
+        </header>
         <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
           <div className="w-full max-w-3xl text-center">
             <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">

@@ -90,15 +90,6 @@ export function SavedSwitcher({ items }: { items: SavedItem[] }) {
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-neutral-200 px-3 py-2 dark:border-neutral-800">
-                <Link
-                  href="/search"
-                  onClick={() => setOpen(false)}
-                  className="block text-center text-xs text-blue-600 transition hover:underline dark:text-blue-400"
-                >
-                  Search across saved profiles →
-                </Link>
-              </div>
             </>
           )}
         </div>
