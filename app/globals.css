@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
+@import "diff2html/bundles/css/diff2html.min.css";
+
+/* Class-based dark mode (Tailwind v4): toggled via .dark on <html>.
+   IDELayout init script applies it from localStorage / prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +23,41 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* diff2html tweaks for dark mode */
+.dark .d2h-wrapper {
+  --d2h-bg-color: #0a0a0a;
+  --d2h-light-color: #1a1a1a;
+}
+.dark .d2h-file-header,
+.dark .d2h-files-diff,
+.dark .d2h-diff-table,
+.dark .d2h-code-line,
+.dark .d2h-code-side-line {
+  color: #e5e5e5;
+}
+.dark .d2h-file-header {
+  background-color: #171717;
+  border-color: #262626;
+}
+.dark .d2h-file-wrapper {
+  border-color: #262626;
+}
+
+/* Hide scrollbars where we want subtle scrolling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.3);
+  border-radius: 4px;
 }
