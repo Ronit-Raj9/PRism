@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
+@import "diff2html/bundles/css/diff2html.min.css";
+
+/* Class-based dark mode (Tailwind v4): toggled via .dark on <html>.
+   AppShell init script applies it from localStorage / prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +23,96 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* The whole app is a flex column inside a viewport that never scrolls.
+   Profile-shell pages opt into this by setting `data-app="shell"` on <html>. */
+html[data-app="shell"],
+html[data-app="shell"] body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  height: 100vh;
+}
+.app-body {
+  display: grid;
+  grid-template-columns: var(--sidebar-w, 260px) 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-sidebar {
+  overflow-y: auto;
+  min-height: 0;
+}
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-main-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* PR view layout — only .pr-diff scrolls. Sticky descendants stick inside it. */
+.pr-shell {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.pr-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+.pr-tree {
+  overflow-y: auto;
+  min-height: 0;
+}
+.pr-diff {
+  overflow-y: auto;
+  min-height: 0;
+}
+.pr-file-hdr {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* The PR diff panel renders its own sticky file header; hide diff2html's. */
+.diff-container .d2h-file-header {
+  display: none;
+}
+.diff-container .d2h-file-wrapper {
+  border: none;
+  margin: 0;
+}
+
+/* diff2html ships matching .d2h-light-color-scheme / .d2h-dark-color-scheme
+   classes; pr-diff-panel selects the right one based on our app theme. No
+   manual variable overrides needed here. */
+
+/* Hide scrollbars where we want subtle scrolling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.3);
+  border-radius: 4px;
 }
