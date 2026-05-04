@@ -1,4 +1,4 @@
-import type { PRNode, IssueNode } from "@/types/github";
+import type { PRNode, IssueNode, PRState, IssueState } from "@/types/github";
 
 export function isExternalContribution(
   item: { repo: { ownerLogin: string } },
@@ -29,6 +29,101 @@ export interface ProjectGroup {
   mergedPRs: number;
   totalAdditions: number;
   totalDeletions: number;
+}
+
+/** Minimum fields the sidebar tree needs to render a PR row. Stripping the
+ * full PRNode (body, comments, reviews) shrinks the RSC payload from MBs to
+ * tens of KB on heavy profiles. */
+export interface SlimPR {
+  number: number;
+  title: string;
+  state: PRState;
+  additions: number;
+  createdAt: string;
+  mergedAt: string | null;
+}
+
+export interface SlimIssue {
+  number: number;
+  title: string;
+  state: IssueState;
+  createdAt: string;
+}
+
+export interface SlimProjectGroup {
+  repo: string;
+  ownerLogin: string;
+  stars: number;
+  prs: SlimPR[];
+  issues: SlimIssue[];
+  mergedPRs: number;
+  totalAdditions: number;
+  totalDeletions: number;
+}
+
+export function groupByRepoSlim(prs: PRNode[], issues: IssueNode[]): SlimProjectGroup[] {
+  const map = new Map<string, SlimProjectGroup>();
+
+  for (const pr of prs) {
+    const key = pr.repo.nameWithOwner;
+    let g = map.get(key);
+    if (!g) {
+      g = {
+        repo: key,
+        ownerLogin: pr.repo.ownerLogin,
+        stars: pr.repo.stargazerCount,
+        prs: [],
+        issues: [],
+        mergedPRs: 0,
+        totalAdditions: 0,
+        totalDeletions: 0,
+      };
+      map.set(key, g);
+    }
+    g.prs.push({
+      number: pr.number,
+      title: pr.title,
+      state: pr.state,
+      additions: pr.additions,
+      createdAt: pr.createdAt,
+      mergedAt: pr.mergedAt,
+    });
+    g.stars = Math.max(g.stars, pr.repo.stargazerCount);
+    if (pr.state === "MERGED") g.mergedPRs++;
+    g.totalAdditions += pr.additions;
+    g.totalDeletions += pr.deletions;
+  }
+
+  for (const issue of issues) {
+    const key = issue.repo.nameWithOwner;
+    let g = map.get(key);
+    if (!g) {
+      g = {
+        repo: key,
+        ownerLogin: issue.repo.ownerLogin,
+        stars: issue.repo.stargazerCount,
+        prs: [],
+        issues: [],
+        mergedPRs: 0,
+        totalAdditions: 0,
+        totalDeletions: 0,
+      };
+      map.set(key, g);
+    }
+    g.issues.push({
+      number: issue.number,
+      title: issue.title,
+      state: issue.state,
+      createdAt: issue.createdAt,
+    });
+    g.stars = Math.max(g.stars, issue.repo.stargazerCount);
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (b.mergedPRs !== a.mergedPRs) return b.mergedPRs - a.mergedPRs;
+    if (b.stars !== a.stars) return b.stars - a.stars;
+    return b.prs.length + b.issues.length - (a.prs.length + a.issues.length);
+  });
 }
 
 export function groupByRepo(prs: PRNode[], issues: IssueNode[]): ProjectGroup[] {

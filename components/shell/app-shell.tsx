@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import type { ProfileBundle } from "@/types/github";
+import type { UserProfile } from "@/types/github";
 import type { SavedItem } from "@/components/saved-switcher";
 import { TopBar } from "./top-bar";
 import { Sidebar } from "./sidebar";
@@ -15,9 +15,11 @@ const MIN_W = 200;
 const MAX_W = 480;
 
 interface Props {
-  bundle: ProfileBundle;
+  user: UserProfile;
   username: string;
   cacheState: "fresh" | "stale" | "miss";
+  fetchedAt: string;
+  rateRemaining: number | null;
   externalGroups: RepoTreeGroup[];
   ownGroups: RepoTreeGroup[];
   savedList: SavedItem[];
@@ -26,9 +28,11 @@ interface Props {
 }
 
 export function AppShell({
-  bundle,
+  user,
   username,
   cacheState,
+  fetchedAt,
+  rateRemaining,
   externalGroups,
   ownGroups,
   savedList,
@@ -156,8 +160,8 @@ export function AppShell({
         username={username}
         initiallySaved={initiallySaved}
         cacheState={cacheState}
-        fetchedAt={bundle.fetchedAt}
-        rateRemaining={bundle.rateLimit?.remaining ?? null}
+        fetchedAt={fetchedAt}
+        rateRemaining={rateRemaining}
         onToggleSidebar={() => writeOpen(open ? "0" : "1")}
       />
       <div className="app-body">
@@ -169,7 +173,7 @@ export function AppShell({
           }
         >
           <Sidebar
-            user={bundle.user}
+            user={user}
             username={username}
             externalGroups={externalGroups}
             ownGroups={ownGroups}

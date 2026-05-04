@@ -100,25 +100,9 @@ html[data-app="shell"] body {
   margin: 0;
 }
 
-/* diff2html tweaks for dark mode */
-.dark .d2h-wrapper {
-  --d2h-bg-color: #0a0a0a;
-  --d2h-light-color: #1a1a1a;
-}
-.dark .d2h-file-header,
-.dark .d2h-files-diff,
-.dark .d2h-diff-table,
-.dark .d2h-code-line,
-.dark .d2h-code-side-line {
-  color: #e5e5e5;
-}
-.dark .d2h-file-header {
-  background-color: #171717;
-  border-color: #262626;
-}
-.dark .d2h-file-wrapper {
-  border-color: #262626;
-}
+/* diff2html ships matching .d2h-light-color-scheme / .d2h-dark-color-scheme
+   classes; pr-diff-panel selects the right one based on our app theme. No
+   manual variable overrides needed here. */
 
 /* Hide scrollbars where we want subtle scrolling */
 .scrollbar-thin {

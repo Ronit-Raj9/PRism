@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import { GitPullRequest, Moon, PanelLeft, Sun } from "lucide-react";
+import { GitPullRequest, Moon, PanelLeft, Scale, Sun } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
 import { SaveButton } from "@/components/save-button";
 
@@ -47,6 +47,14 @@ export function TopBar({
         fetchedAt={fetchedAt}
         rateRemaining={rateRemaining}
       />
+      <Link
+        href={`/compare?u=${encodeURIComponent(username)}`}
+        title="Compare profiles"
+        className="hidden items-center gap-1 rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 md:inline-flex dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+      >
+        <Scale size={14} />
+        <span className="text-[11px] font-medium">Compare</span>
+      </Link>
       <SaveButton username={username} initialSaved={initiallySaved} />
       <ThemeToggle />
     </header>

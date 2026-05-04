@@ -33,11 +33,29 @@ export function PRHeader({ pr, username, prev, next }: Props) {
           {username}
         </Link>
         <ChevronRight size={11} />
-        <span className="font-mono">{owner}</span>
+        <Link
+          href={`/u/${username}/org/${owner}`}
+          className="font-mono hover:text-neutral-900 dark:hover:text-neutral-200"
+        >
+          {owner}
+        </Link>
         <ChevronRight size={11} />
-        <span className="font-mono">{repo}</span>
+        <Link
+          href={`/u/${username}/repo/${owner}/${repo}`}
+          className="font-mono hover:text-neutral-900 dark:hover:text-neutral-200"
+        >
+          {repo}
+        </Link>
         <ChevronRight size={11} />
-        <span>PR #{pr.number}</span>
+        <a
+          href={pr.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-neutral-900 dark:hover:text-neutral-200"
+          title="Open PR on GitHub"
+        >
+          PR #{pr.number}
+        </a>
 
         <div className="ml-auto flex items-center gap-1">
           <NeighbourButton dir="prev" target={prev} username={username} />

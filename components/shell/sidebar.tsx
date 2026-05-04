@@ -11,6 +11,7 @@ import { RepoTree, type RepoTreeGroup } from "./repo-tree";
 import { SavedProfiles } from "./saved-profiles";
 import { SidebarControls, type RepoSort } from "./sidebar-controls";
 import { useStoredSet } from "./use-stored-set";
+import { useDebouncedValue } from "./use-debounced-value";
 
 interface Props {
   user: UserProfile;
@@ -33,13 +34,17 @@ export function Sidebar({
   const [sort, setSort] = useState<RepoSort>("activity");
   const [collapsed, writeCollapsed] = useStoredSet(COLLAPSED_KEY);
 
+  // Debounce the filter so each keystroke doesn't re-run the filter+sort
+  // pass over potentially hundreds of repos.
+  const debouncedFilter = useDebouncedValue(filter, 150);
+
   const filteredExternal = useMemo(
-    () => sortGroups(filterGroups(externalGroups, filter), sort),
-    [externalGroups, filter, sort],
+    () => sortGroups(filterGroups(externalGroups, debouncedFilter), sort),
+    [externalGroups, debouncedFilter, sort],
   );
   const filteredOwn = useMemo(
-    () => sortGroups(filterGroups(ownGroups, filter), sort),
-    [ownGroups, filter, sort],
+    () => sortGroups(filterGroups(ownGroups, debouncedFilter), sort),
+    [ownGroups, debouncedFilter, sort],
   );
 
   function toggleSection(id: string) {

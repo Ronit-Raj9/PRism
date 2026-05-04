@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import clsx from "clsx";
 import {
   ChevronDown,
@@ -12,15 +12,16 @@ import {
   GitPullRequestClosed,
   Star,
 } from "lucide-react";
-import type { IssueNode, PRNode } from "@/types/github";
+import type { PRState } from "@/types/github";
+import type { SlimPR, SlimIssue } from "@/lib/classify";
 import { useStoredSet } from "./use-stored-set";
 
 export interface RepoTreeGroup {
   repo: string;
   ownerLogin: string;
   stars: number;
-  prs: PRNode[];
-  issues: IssueNode[];
+  prs: SlimPR[];
+  issues: SlimIssue[];
   mergedPRs: number;
   totalAdditions: number;
   totalDeletions: number;
@@ -65,29 +66,32 @@ export function RepoTree({ username, groups, storageKey }: Props) {
     return next;
   }, [expanded, activePR, groups]);
 
-  function toggle(repo: string) {
-    const next = new Set(expanded);
-    if (next.has(repo)) next.delete(repo);
-    else next.add(repo);
-    writeExpanded(next);
-  }
+  const toggle = useCallback(
+    (repo: string) => {
+      const next = new Set(expanded);
+      if (next.has(repo)) next.delete(repo);
+      else next.add(repo);
+      writeExpanded(next);
+    },
+    [expanded, writeExpanded],
+  );
 
-  function expandShowAll(repo: string) {
+  const expandShowAll = useCallback((repo: string) => {
     setShowAllFor((prev) => {
       const next = new Set(prev);
       next.add(repo);
       return next;
     });
-  }
+  }, []);
 
-  function setStateFilter(repo: string, f: StateFilter) {
+  const setStateFilter = useCallback((repo: string, f: StateFilter) => {
     setStateFilterFor((prev) => {
       const next = new Map(prev);
       if (f === "all") next.delete(repo);
       else next.set(repo, f);
       return next;
     });
-  }
+  }, []);
 
   if (groups.length === 0) {
     return (
@@ -99,127 +103,170 @@ export function RepoTree({ username, groups, storageKey }: Props) {
 
   return (
     <ul className="space-y-px">
-      {groups.map((g) => {
-        const open = effectivelyExpanded.has(g.repo);
-        const showAll = showAllFor.has(g.repo);
-        const stateFilter = stateFilterFor.get(g.repo) ?? "all";
-
-        const sortedPRs = [...g.prs].sort(
-          (a, b) =>
-            new Date(b.mergedAt ?? b.createdAt).getTime() -
-            new Date(a.mergedAt ?? a.createdAt).getTime(),
-        );
-
-        const filteredPRs =
-          stateFilter === "all"
-            ? sortedPRs
-            : sortedPRs.filter((p) =>
-                stateFilter === "merged"
-                  ? p.state === "MERGED"
-                  : stateFilter === "open"
-                    ? p.state === "OPEN"
-                    : p.state === "CLOSED",
-              );
-
-        const visiblePRs = showAll
-          ? filteredPRs
-          : filteredPRs.slice(0, PRE_OPEN_LIMIT);
-        const remaining = filteredPRs.length - visiblePRs.length;
-
-        const openCount = g.prs.filter((p) => p.state === "OPEN").length;
-        const closedCount = g.prs.filter((p) => p.state === "CLOSED").length;
-
-        return (
-          <li key={g.repo}>
-            <button
-              onClick={() => toggle(g.repo)}
-              className="flex w-full items-center gap-1 px-2 py-1 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-            >
-              {open ? (
-                <ChevronDown size={12} className="shrink-0 text-neutral-400" />
-              ) : (
-                <ChevronRight size={12} className="shrink-0 text-neutral-400" />
-              )}
-              <span className="flex-1 truncate font-mono text-[12px] text-neutral-800 dark:text-neutral-200">
-                {g.repo}
-              </span>
-              <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-neutral-500">
-                <Star size={10} className="fill-current" />
-                {fmtCount(g.stars)}
-              </span>
-            </button>
-
-            {open ? (
-              <div className="pl-5 pr-2 pb-1.5">
-                <MiniStats
-                  total={g.prs.length}
-                  merged={g.mergedPRs}
-                  open={openCount}
-                  closed={closedCount}
-                  added={g.totalAdditions}
-                  removed={g.totalDeletions}
-                  active={stateFilter}
-                  setActive={(f) => setStateFilter(g.repo, f)}
-                />
-                <ul className="mt-1 space-y-px">
-                  {visiblePRs.length === 0 ? (
-                    <li className="px-1 py-1 text-[10.5px] italic text-neutral-500">
-                      No PRs match.
-                    </li>
-                  ) : (
-                    visiblePRs.map((pr) => {
-                      const isActive =
-                        activePR?.repo === g.repo &&
-                        activePR.number === pr.number;
-                      const [owner, repoName] = g.repo.split("/");
-                      return (
-                        <li key={pr.number}>
-                          <Link
-                            href={`/u/${username}/pr/${owner}/${repoName}/${pr.number}`}
-                            data-pr-row
-                            data-pr-active={isActive ? "true" : undefined}
-                            className={clsx(
-                              "flex items-center gap-1.5 rounded-sm border-l-2 py-0.5 pl-1.5 pr-1 text-[11.5px] transition",
-                              isActive
-                                ? "border-teal-500 bg-teal-500/10 text-neutral-900 dark:text-neutral-50"
-                                : "border-transparent text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/50",
-                            )}
-                            title={pr.title}
-                          >
-                            <PRStateIcon state={pr.state} />
-                            <span className="flex-1 truncate">{pr.title}</span>
-                            <span
-                              className={clsx(
-                                "shrink-0 text-[10px] tabular-nums",
-                                pr.additions > 0
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : "text-neutral-500",
-                              )}
-                            >
-                              +{fmtCount(pr.additions)}
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })
-                  )}
-                </ul>
-                {remaining > 0 ? (
-                  <button
-                    onClick={() => expandShowAll(g.repo)}
-                    className="mt-0.5 px-1 py-0.5 text-[10.5px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-                  >
-                    ··· {remaining} more ↓
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </li>
-        );
-      })}
+      {groups.map((g) => (
+        <RepoRow
+          key={g.repo}
+          group={g}
+          username={username}
+          isOpen={effectivelyExpanded.has(g.repo)}
+          showAll={showAllFor.has(g.repo)}
+          stateFilter={stateFilterFor.get(g.repo) ?? "all"}
+          activePRNumber={activePR?.repo === g.repo ? activePR.number : null}
+          onToggle={toggle}
+          onExpandShowAll={expandShowAll}
+          onSetStateFilter={setStateFilter}
+        />
+      ))}
     </ul>
   );
 }
+
+interface RepoRowProps {
+  group: RepoTreeGroup;
+  username: string;
+  isOpen: boolean;
+  showAll: boolean;
+  stateFilter: StateFilter;
+  activePRNumber: number | null;
+  onToggle: (repo: string) => void;
+  onExpandShowAll: (repo: string) => void;
+  onSetStateFilter: (repo: string, f: StateFilter) => void;
+}
+
+const RepoRow = memo(function RepoRow({
+  group: g,
+  username,
+  isOpen,
+  showAll,
+  stateFilter,
+  activePRNumber,
+  onToggle,
+  onExpandShowAll,
+  onSetStateFilter,
+}: RepoRowProps) {
+  // Sort once per PR list. Re-runs only when the PR list itself changes
+  // (server-shaped, so basically once per profile fetch), NOT on every
+  // sidebar filter keystroke.
+  const sortedPRs = useMemo(
+    () =>
+      [...g.prs].sort(
+        (a, b) =>
+          new Date(b.mergedAt ?? b.createdAt).getTime() -
+          new Date(a.mergedAt ?? a.createdAt).getTime(),
+      ),
+    [g.prs],
+  );
+
+  const counts = useMemo(() => {
+    let openC = 0;
+    let closedC = 0;
+    for (const p of g.prs) {
+      if (p.state === "OPEN") openC++;
+      else if (p.state === "CLOSED") closedC++;
+    }
+    return { openC, closedC };
+  }, [g.prs]);
+
+  const filteredPRs = useMemo(() => {
+    if (stateFilter === "all") return sortedPRs;
+    const target =
+      stateFilter === "merged"
+        ? "MERGED"
+        : stateFilter === "open"
+          ? "OPEN"
+          : "CLOSED";
+    return sortedPRs.filter((p) => p.state === target);
+  }, [sortedPRs, stateFilter]);
+
+  const visiblePRs = showAll ? filteredPRs : filteredPRs.slice(0, PRE_OPEN_LIMIT);
+  const remaining = filteredPRs.length - visiblePRs.length;
+  const [owner, repoName] = g.repo.split("/");
+
+  return (
+    <li>
+      <button
+        onClick={() => onToggle(g.repo)}
+        className="flex w-full items-center gap-1 px-2 py-1 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+      >
+        {isOpen ? (
+          <ChevronDown size={12} className="shrink-0 text-neutral-400" />
+        ) : (
+          <ChevronRight size={12} className="shrink-0 text-neutral-400" />
+        )}
+        <span className="flex-1 truncate font-mono text-[12px] text-neutral-800 dark:text-neutral-200">
+          {g.repo}
+        </span>
+        <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-neutral-500">
+          <Star size={10} className="fill-current" />
+          {fmtCount(g.stars)}
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className="pl-5 pr-2 pb-1.5">
+          <MiniStats
+            total={g.prs.length}
+            merged={g.mergedPRs}
+            open={counts.openC}
+            closed={counts.closedC}
+            added={g.totalAdditions}
+            removed={g.totalDeletions}
+            active={stateFilter}
+            setActive={(f) => onSetStateFilter(g.repo, f)}
+          />
+          <ul className="mt-1 space-y-px">
+            {visiblePRs.length === 0 ? (
+              <li className="px-1 py-1 text-[10.5px] italic text-neutral-500">
+                No PRs match.
+              </li>
+            ) : (
+              visiblePRs.map((pr) => {
+                const isActive = activePRNumber === pr.number;
+                return (
+                  <li key={pr.number}>
+                    <Link
+                      href={`/u/${username}/pr/${owner}/${repoName}/${pr.number}`}
+                      data-pr-row
+                      data-pr-active={isActive ? "true" : undefined}
+                      className={clsx(
+                        "flex items-center gap-1.5 rounded-sm border-l-2 py-0.5 pl-1.5 pr-1 text-[11.5px] transition",
+                        isActive
+                          ? "border-teal-500 bg-teal-500/10 text-neutral-900 dark:text-neutral-50"
+                          : "border-transparent text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/50",
+                      )}
+                      title={pr.title}
+                    >
+                      <PRStateIcon state={pr.state} />
+                      <span className="flex-1 truncate">{pr.title}</span>
+                      <span
+                        className={clsx(
+                          "shrink-0 text-[10px] tabular-nums",
+                          pr.additions > 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-neutral-500",
+                        )}
+                      >
+                        +{fmtCount(pr.additions)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+          {remaining > 0 ? (
+            <button
+              onClick={() => onExpandShowAll(g.repo)}
+              className="mt-0.5 px-1 py-0.5 text-[10.5px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            >
+              ··· {remaining} more ↓
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+});
 
 function MiniStats({
   total,
@@ -321,7 +368,7 @@ function Pill({
   );
 }
 
-function PRStateIcon({ state }: { state: PRNode["state"] }) {
+function PRStateIcon({ state }: { state: PRState }) {
   if (state === "MERGED")
     return <GitMerge size={11} className="shrink-0 text-violet-500" />;
   if (state === "CLOSED")

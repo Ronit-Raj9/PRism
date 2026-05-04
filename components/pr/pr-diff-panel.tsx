@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import clsx from "clsx";
 import { html as diff2htmlHtml } from "diff2html";
 import { ColorSchemeType } from "diff2html/lib/types";
@@ -8,6 +8,26 @@ import { FileWarning } from "lucide-react";
 import type { PRFile, ReviewCommentNode } from "@/types/github";
 import type { DisplayMode } from "./pr-toolbar";
 import { isLikelyBinary } from "./binary";
+
+// Subscribe to .dark class changes on <html>. diff2html's AUTO color scheme
+// only watches `prefers-color-scheme`, ignoring our manual theme toggle, so
+// we read our actual theme state and pass DARK or LIGHT explicitly.
+function subscribeDark(cb: () => void) {
+  const obs = new MutationObserver(cb);
+  obs.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => obs.disconnect();
+}
+
+function useIsDark(): boolean {
+  return useSyncExternalStore(
+    subscribeDark,
+    () => document.documentElement.classList.contains("dark"),
+    () => false,
+  );
+}
 
 interface Props {
   panelRef: React.RefObject<HTMLDivElement | null>;
@@ -304,6 +324,7 @@ function FileDiffBody({
   file: PRFile;
   displayMode: DisplayMode;
 }) {
+  const isDark = useIsDark();
   const html = useMemo(() => {
     if (!file.patch) return null;
     const diffHeader = [
@@ -319,9 +340,9 @@ function FileDiffBody({
       drawFileList: false,
       matching: "lines",
       outputFormat: displayMode === "split" ? "side-by-side" : "line-by-line",
-      colorScheme: ColorSchemeType.AUTO,
+      colorScheme: isDark ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
     });
-  }, [file.path, file.patch, file.status, displayMode]);
+  }, [file.path, file.patch, file.status, displayMode, isDark]);
 
   if (!html) {
     return (

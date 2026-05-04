@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { format, formatDistanceToNowStrict, subDays } from "date-fns";
-import type { PRNode } from "@/types/github";
-import type { TimelineEvent, EventKind } from "@/lib/timeline";
+import { format, formatDistanceToNowStrict, parseISO, subDays } from "date-fns";
+import type { ClientTimelineEvent, EventKind } from "@/lib/timeline";
 import { uniqueOrgs, uniqueRepos } from "@/lib/timeline";
-import { PRDetail } from "./pr-detail";
-import { CommentList, ReviewList } from "./comment-thread";
 import { MarkdownBody } from "./markdown-body";
 
 type Scope = "all" | "external" | "own";
@@ -21,7 +20,7 @@ const KIND_GROUPS: { id: EventKind[]; label: string }[] = [
 ];
 
 interface Props {
-  events: TimelineEvent[];
+  events: ClientTimelineEvent[];
 }
 
 export function TimelineView({ events }: Props) {
@@ -67,7 +66,8 @@ export function TimelineView({ events }: Props) {
       )
         return false;
       if (repoFilter && e.repo !== repoFilter) return false;
-      if (cutoff && e.at.getTime() < cutoff.getTime()) return false;
+      if (cutoff && new Date(e.atIso).getTime() < cutoff.getTime())
+        return false;
       return true;
     });
   }, [events, scope, dateRange, enabledKinds, orgFilter, repoFilter]);
@@ -239,12 +239,16 @@ export function TimelineView({ events }: Props) {
   );
 }
 
-function EventCard({ event }: { event: TimelineEvent }) {
+const EventCard = memo(function EventCard({ event }: { event: ClientTimelineEvent }) {
   const [open, setOpen] = useState(false);
 
-  const meta = describe(event);
-  const expandable =
-    event.kind !== "REVIEW_COMMENT" || Boolean((event as { reviewComment?: { body?: string } }).reviewComment?.body);
+  const at = useMemo(() => new Date(event.atIso), [event.atIso]);
+  const expandable = event.expandable;
+
+  // Date formatting is expensive when called for every visible row on every
+  // re-render. Compute once per event lifetime.
+  const ago = useMemo(() => `${formatDistanceToNowStrict(at)} ago`, [at]);
+  const tipDate = useMemo(() => format(at, "yyyy-MM-dd HH:mm:ss"), [at]);
 
   return (
     <li className="overflow-hidden rounded-md border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
@@ -273,66 +277,126 @@ function EventCard({ event }: { event: TimelineEvent }) {
               ext
             </span>
           ) : null}
-          {meta.title}
+          {event.rowTitle}
         </span>
         <span className="shrink-0 truncate font-mono text-[11px] text-neutral-500">
           {event.repo}
         </span>
         <span
           className="shrink-0 text-xs text-neutral-500"
-          title={format(event.at, "yyyy-MM-dd HH:mm:ss")}
+          title={tipDate}
         >
-          {formatDistanceToNowStrict(event.at)} ago
+          {ago}
         </span>
       </button>
       {open ? <EventBody event={event} /> : null}
     </li>
   );
-}
+});
 
-function EventBody({ event }: { event: TimelineEvent }) {
+function EventBody({ event }: { event: ClientTimelineEvent }) {
   switch (event.kind) {
     case "PR_OPENED":
     case "PR_MERGED":
     case "PR_CLOSED":
-      return <PRDetail pr={event.pr} />;
+      return (
+        <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+          <div className="mb-3 flex flex-wrap items-baseline gap-3 text-xs">
+            <span className="font-mono text-neutral-500">
+              {event.repo}#{event.prNumber}
+            </span>
+            {event.additions != null ? (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                +{event.additions.toLocaleString()}
+              </span>
+            ) : null}
+            {event.deletions != null ? (
+              <span className="text-rose-600 dark:text-rose-400">
+                −{event.deletions.toLocaleString()}
+              </span>
+            ) : null}
+            {event.changedFiles != null ? (
+              <span className="text-neutral-500">
+                {event.changedFiles} file{event.changedFiles === 1 ? "" : "s"}
+                {event.mergedAt
+                  ? ` · merged ${format(parseISO(event.mergedAt), "MMM d, yyyy")}`
+                  : event.prCreatedAt
+                    ? ` · opened ${format(parseISO(event.prCreatedAt), "MMM d, yyyy")}`
+                    : null}
+              </span>
+            ) : null}
+          </div>
+          {event.bodyPreview ? (
+            <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
+              <MarkdownBody body={event.bodyPreview} />
+            </div>
+          ) : (
+            <p className="text-sm italic text-neutral-500">No description.</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {event.prOwner && event.prRepo && event.prNumber != null ? (
+              <PRInAppLink
+                prOwner={event.prOwner}
+                prRepo={event.prRepo}
+                prNumber={event.prNumber}
+                changedFiles={event.changedFiles}
+              />
+            ) : null}
+            {event.githubUrl ? (
+              <a
+                href={event.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                GitHub ↗
+              </a>
+            ) : null}
+          </div>
+        </div>
+      );
 
     case "ISSUE_OPENED":
     case "ISSUE_CLOSED":
       return (
         <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-          <div className="mb-3 flex flex-wrap gap-1">
-            {event.issue.labels.map((l, i) => (
-              <span
-                key={i}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                style={{ backgroundColor: `#${l.color}33`, color: `#${l.color}` }}
-              >
-                {l.name}
-              </span>
-            ))}
-          </div>
-          <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
-            <MarkdownBody body={event.issue.body} />
-          </div>
-          {event.issue.comments.length > 0 ? (
-            <div className="mt-3">
-              <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                {event.issue.comments.length} comment
-                {event.issue.comments.length === 1 ? "" : "s"}
-              </h5>
-              <CommentList comments={event.issue.comments} />
+          {event.labels && event.labels.length > 0 ? (
+            <div className="mb-3 flex flex-wrap gap-1">
+              {event.labels.map((l, i) => (
+                <span
+                  key={`${l.name}-${i}`}
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  style={{
+                    backgroundColor: `#${l.color}33`,
+                    color: `#${l.color}`,
+                  }}
+                >
+                  {l.name}
+                </span>
+              ))}
             </div>
           ) : null}
+          <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
+            <MarkdownBody body={event.bodyPreview ?? ""} />
+          </div>
+          {event.issueCommentCount != null && event.issueCommentCount > 0 ? (
+            <p className="mt-3 text-xs text-neutral-500">
+              {event.issueCommentCount} comment
+              {event.issueCommentCount === 1 ? "" : "s"} on GitHub (not loaded
+              here).
+            </p>
+          ) : null}
           <div className="mt-2 text-right">
-            <a
-              href={event.issue.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:underline dark:text-blue-400"
-            >
-              Open on GitHub ↗
-            </a>
+            {event.githubUrl ? (
+              <a
+                href={event.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Open on GitHub ↗
+              </a>
+            ) : null}
           </div>
         </div>
       );
@@ -341,17 +405,23 @@ function EventBody({ event }: { event: TimelineEvent }) {
     case "ISSUE_COMMENT":
       return (
         <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-          <div className="mb-2 text-xs text-neutral-500">
-            {event.kind === "PR_COMMENT"
-              ? `On PR ${event.pr.repo.nameWithOwner}#${event.pr.number} — ${event.pr.title}`
-              : `On issue ${event.issue.repo.nameWithOwner}#${event.issue.number} — ${event.issue.title}`}
-          </div>
+          {event.contextLine ? (
+            <div className="mb-2 text-xs text-neutral-500">{event.contextLine}</div>
+          ) : null}
           <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
-            <MarkdownBody body={event.comment.body} />
+            <MarkdownBody body={event.bodyPreview ?? ""} />
           </div>
-          {event.kind === "PR_COMMENT" ? (
+          {event.kind === "PR_COMMENT" &&
+          event.prOwner &&
+          event.prRepo &&
+          event.prNumber != null ? (
             <div className="mt-3">
-              <PRJumpButton pr={event.pr} />
+              <PRInAppLink
+                prOwner={event.prOwner}
+                prRepo={event.prRepo}
+                prNumber={event.prNumber}
+                changedFiles={event.changedFiles}
+              />
             </div>
           ) : null}
         </div>
@@ -360,13 +430,26 @@ function EventBody({ event }: { event: TimelineEvent }) {
     case "REVIEW_GIVEN":
       return (
         <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-          <div className="mb-2 text-xs text-neutral-500">
-            Review on {event.pr.repo.nameWithOwner}#{event.pr.number} —{" "}
-            {event.pr.title}
+          {event.contextLine ? (
+            <div className="mb-2 text-xs text-neutral-500">{event.contextLine}</div>
+          ) : null}
+          {event.reviewState ? (
+            <div className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              State: {event.reviewState.replace(/_/g, " ")}
+            </div>
+          ) : null}
+          <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
+            <MarkdownBody body={event.bodyPreview ?? ""} />
           </div>
-          <ReviewList reviews={[event.review]} />
           <div className="mt-3">
-            <PRJumpButton pr={event.pr} />
+            {event.prOwner && event.prRepo && event.prNumber != null ? (
+              <PRInAppLink
+                prOwner={event.prOwner}
+                prRepo={event.prRepo}
+                prNumber={event.prNumber}
+                changedFiles={event.changedFiles}
+              />
+            ) : null}
           </div>
         </div>
       );
@@ -375,91 +458,63 @@ function EventBody({ event }: { event: TimelineEvent }) {
       return (
         <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
           <div className="mb-2 text-xs text-neutral-500">
-            Review comment on {event.pr.repo.nameWithOwner}#{event.pr.number}
-            {event.reviewComment.path ? (
+            Review comment on {event.repo}#{event.prNumber}
+            {event.reviewPath ? (
               <>
                 {" · "}
                 <code className="font-mono">
-                  {event.reviewComment.path}
-                  {event.reviewComment.line ? `:${event.reviewComment.line}` : ""}
+                  {event.reviewPath}
+                  {event.reviewLine != null ? `:${event.reviewLine}` : ""}
                 </code>
               </>
             ) : null}
           </div>
-          {event.reviewComment.diffHunk ? (
+          {event.diffHunkPreview ? (
             <pre className="mb-2 max-h-40 overflow-auto rounded bg-neutral-100 p-2 font-mono text-[11px] dark:bg-neutral-800">
-              {event.reviewComment.diffHunk}
+              {event.diffHunkPreview}
             </pre>
           ) : null}
           <div className="rounded-md border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-950">
-            <MarkdownBody body={event.reviewComment.body} />
+            <MarkdownBody body={event.bodyPreview ?? ""} />
           </div>
           <div className="mt-3">
-            <PRJumpButton pr={event.pr} />
+            {event.prOwner && event.prRepo && event.prNumber != null ? (
+              <PRInAppLink
+                prOwner={event.prOwner}
+                prRepo={event.prRepo}
+                prNumber={event.prNumber}
+                changedFiles={event.changedFiles}
+              />
+            ) : null}
           </div>
         </div>
       );
   }
 }
 
-function PRJumpButton({ pr }: { pr: PRNode }) {
-  // Resolve the current profile username from the URL so the button targets
-  // the in-app PR view rather than github.com.
-  const pathname =
-    typeof window !== "undefined" ? window.location.pathname : "";
+function PRInAppLink({
+  prOwner,
+  prRepo,
+  prNumber,
+  changedFiles,
+}: {
+  prOwner: string;
+  prRepo: string;
+  prNumber: number;
+  changedFiles?: number;
+}) {
+  const pathname = usePathname() ?? "";
   const m = /^\/u\/([^/]+)/.exec(pathname);
-  const username = m?.[1] ?? pr.repo.ownerLogin;
-  const [owner, repo] = pr.repo.nameWithOwner.split("/");
+  const username = m?.[1] ?? prOwner;
+  const cf = changedFiles ?? 0;
   return (
-    <a
-      href={`/u/${username}/pr/${owner}/${repo}/${pr.number}`}
+    <Link
+      href={`/u/${encodeURIComponent(username)}/pr/${prOwner}/${prRepo}/${prNumber}`}
       className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
     >
-      View {pr.changedFiles} file change
-      {pr.changedFiles === 1 ? "" : "s"} →
-    </a>
+      View {cf} file change{cf === 1 ? "" : "s"} →
+    </Link>
   );
-}
-
-function describe(event: TimelineEvent): { title: string } {
-  switch (event.kind) {
-    case "PR_OPENED":
-      return { title: `Opened: ${event.pr.title}` };
-    case "PR_MERGED":
-      return { title: `Merged: ${event.pr.title}` };
-    case "PR_CLOSED":
-      return { title: `Closed (unmerged): ${event.pr.title}` };
-    case "ISSUE_OPENED":
-      return { title: `Filed issue: ${event.issue.title}` };
-    case "ISSUE_CLOSED":
-      return { title: `Issue closed: ${event.issue.title}` };
-    case "PR_COMMENT":
-      return {
-        title: `Commented on #${event.pr.number}: "${snippetOf(event.comment.body)}"`,
-      };
-    case "ISSUE_COMMENT":
-      return {
-        title: `Commented on #${event.issue.number}: "${snippetOf(event.comment.body)}"`,
-      };
-    case "REVIEW_GIVEN": {
-      const verdict =
-        event.review.state === "APPROVED"
-          ? "approved"
-          : event.review.state === "CHANGES_REQUESTED"
-            ? "requested changes"
-            : "commented";
-      return { title: `Review (${verdict}) on #${event.pr.number}` };
-    }
-    case "REVIEW_COMMENT":
-      return {
-        title: `Review comment on #${event.pr.number}: "${snippetOf(event.reviewComment.body)}"`,
-      };
-  }
-}
-
-function snippetOf(text: string, max = 80): string {
-  const cleaned = text.replace(/\s+/g, " ").trim();
-  return cleaned.length > max ? `${cleaned.slice(0, max)}…` : cleaned;
 }
 
 function KindBadge({ kind }: { kind: EventKind }) {

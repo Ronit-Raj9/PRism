@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { GitHubError } from "@/lib/github";
 import { getProfileBundleCached } from "@/lib/profile";
-import { groupByRepo, splitInternalExternal } from "@/lib/classify";
+import { groupByRepoSlim, splitInternalExternal } from "@/lib/classify";
 import { getSaved, listSaved, touchVisited } from "@/lib/saved";
 import { AppShell } from "@/components/shell/app-shell";
 import type { SavedItem } from "@/components/saved-switcher";
@@ -41,8 +41,10 @@ export default async function ProfileLayout({ children, params }: LayoutProps) {
     username,
   );
 
-  const externalGroups = groupByRepo(externalPRs, externalIssues);
-  const ownGroups = groupByRepo(ownPRs, ownIssues);
+  // Slim groups: only the fields the sidebar tree renders. Avoids serializing
+  // PR bodies/comments/reviews into the RSC payload on every navigation.
+  const externalGroups = groupByRepoSlim(externalPRs, externalIssues);
+  const ownGroups = groupByRepoSlim(ownPRs, ownIssues);
 
   const savedList: SavedItem[] = (savedListRaw ?? []).map((s) => ({
     username: s.username,
@@ -53,9 +55,11 @@ export default async function ProfileLayout({ children, params }: LayoutProps) {
 
   return (
     <AppShell
-      bundle={bundle}
+      user={bundle.user}
       username={username}
       cacheState={cacheState}
+      fetchedAt={bundle.fetchedAt}
+      rateRemaining={bundle.rateLimit?.remaining ?? null}
       externalGroups={externalGroups}
       ownGroups={ownGroups}
       savedList={savedList}
