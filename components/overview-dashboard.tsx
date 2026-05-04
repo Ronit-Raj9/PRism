@@ -22,7 +22,7 @@ export function OverviewDashboard({
   const totalLOCRemoved = bundle.pullRequests.reduce((s, p) => s + p.deletions, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KPI
           label="External PRs merged"
@@ -83,20 +83,20 @@ function KPI({
   accent?: "violet";
 }) {
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+    <div className="ui-panel p-5">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--muted)]">
         {label}
       </div>
       <div
         className={
           accent === "violet"
-            ? "mt-1 text-2xl font-semibold text-violet-700 dark:text-violet-300"
-            : "mt-1 text-2xl font-semibold"
+            ? "mt-2 text-2xl font-semibold tabular-nums text-violet-600 dark:text-violet-400"
+            : "mt-2 text-2xl font-semibold tabular-nums text-[var(--foreground)]"
         }
       >
         {value.toLocaleString()}
       </div>
-      {hint ? <div className="mt-1 text-[11px] text-neutral-500">{hint}</div> : null}
+      {hint ? <div className="mt-2 text-xs leading-snug text-[var(--muted)]">{hint}</div> : null}
     </div>
   );
 }
@@ -108,31 +108,31 @@ function TopExternalProjects({
 }) {
   const top = groups.slice(0, 8);
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <h3 className="mb-3 text-sm font-semibold">Top external projects</h3>
+    <div className="ui-panel p-5">
+      <h3 className="mb-4 text-sm font-semibold tracking-tight text-[var(--foreground)]">
+        Top external projects
+      </h3>
       {top.length === 0 ? (
-        <p className="text-sm text-neutral-500">No external contributions yet.</p>
+        <p className="text-sm text-[var(--muted)]">No external contributions yet.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-[var(--border)]">
           {top.map((g) => (
             <li
               key={g.repo}
-              className="flex items-baseline justify-between gap-2 text-sm"
+              className="flex items-baseline justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0"
             >
               <a
                 href={`https://github.com/${g.repo}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate font-mono text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+                className="truncate font-mono text-[var(--foreground)] hover:text-indigo-600 dark:hover:text-indigo-400"
               >
                 {g.repo}
               </a>
-              <span className="shrink-0 text-xs text-neutral-500">
+              <span className="shrink-0 text-xs text-[var(--muted)]">
                 ★ {g.stars.toLocaleString()} ·{" "}
                 {g.mergedPRs > 0 ? (
-                  <span className="text-violet-700 dark:text-violet-300">
-                    {g.mergedPRs} merged
-                  </span>
+                  <span className="text-violet-600 dark:text-violet-400">{g.mergedPRs} merged</span>
                 ) : (
                   `${g.prs.length} PR${g.prs.length === 1 ? "" : "s"}`
                 )}
@@ -157,8 +157,8 @@ function CodeFootprint({
   totalCommits: number;
 }) {
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <h3 className="mb-3 text-sm font-semibold">Code footprint</h3>
+    <div className="ui-panel p-5">
+      <h3 className="mb-4 text-sm font-semibold tracking-tight text-[var(--foreground)]">Code footprint</h3>
       <dl className="space-y-2 text-sm">
         <Row
           k="Lines added"
@@ -185,8 +185,8 @@ function CodeFootprint({
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-2 border-b border-neutral-100 pb-1.5 last:border-0 dark:border-neutral-800">
-      <dt className="text-neutral-600 dark:text-neutral-400">{k}</dt>
+    <div className="flex justify-between gap-2 border-b border-[var(--border)] py-2 last:border-0">
+      <dt className="text-[var(--muted)]">{k}</dt>
       <dd className="font-medium">{v}</dd>
     </div>
   );

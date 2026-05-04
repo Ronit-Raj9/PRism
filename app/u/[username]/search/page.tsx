@@ -24,8 +24,12 @@ export default async function SearchPage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <div className="app-main-scroll">
-      <div className="mx-auto max-w-4xl px-6 py-6">
+    <div className="app-main-scroll scrollbar-thin">
+      <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8 sm:py-12">
+        <header className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-widest text-[var(--muted)]">This profile</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Search</h1>
+        </header>
         <ProfileSearch
           username={username}
           prs={result.bundle.pullRequests}

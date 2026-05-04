@@ -1,86 +1,101 @@
+"use client";
+
 import Image from "next/image";
+import Link from "next/link";
+import { Building2, Link2, MapPin } from "lucide-react";
 import type { UserProfile } from "@/types/github";
 import { format, formatDistanceToNowStrict, parseISO } from "date-fns";
 
 export function ProfileHeader({ user }: { user: UserProfile }) {
   return (
-    <header className="flex flex-col gap-6 border-b border-neutral-200 pb-8 sm:flex-row sm:items-start dark:border-neutral-800">
+    <header className="flex flex-col gap-8 border-b border-[var(--border)] pb-10 sm:flex-row sm:items-start">
       <Image
         src={user.avatarUrl}
         alt={user.login}
-        width={120}
-        height={120}
-        className="h-24 w-24 rounded-full sm:h-32 sm:w-32"
+        width={112}
+        height={112}
+        className="h-24 w-24 shrink-0 rounded-2xl ring-1 ring-[var(--border)] sm:h-28 sm:w-28"
         unoptimized
       />
-      <div className="flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h1 className="text-2xl font-semibold sm:text-3xl">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {user.name ?? user.login}
           </h1>
           <a
             href={`https://github.com/${user.login}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-base text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+            className="text-sm text-[var(--muted)] transition hover:text-[var(--foreground)]"
           >
             @{user.login}
           </a>
         </div>
         {user.bio ? (
-          <p className="mt-2 max-w-2xl text-sm text-neutral-700 dark:text-neutral-300">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--foreground)]/90">
             {user.bio}
           </p>
         ) : null}
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
-          {user.company ? <span>🏢 {user.company}</span> : null}
-          {user.location ? <span>📍 {user.location}</span> : null}
+        <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
+          {user.company ? (
+            <div className="flex items-center gap-1.5">
+              <Building2 size={14} strokeWidth={1.75} className="shrink-0 opacity-70" />
+              <span>{user.company}</span>
+            </div>
+          ) : null}
+          {user.location ? (
+            <div className="flex items-center gap-1.5">
+              <MapPin size={14} strokeWidth={1.75} className="shrink-0 opacity-70" />
+              <span>{user.location}</span>
+            </div>
+          ) : null}
           {user.blog ? (
-            <a
-              href={user.blog.startsWith("http") ? user.blog : `https://${user.blog}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-neutral-900 dark:hover:text-neutral-100"
-            >
-              🔗 {user.blog}
-            </a>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Link2 size={14} strokeWidth={1.75} className="shrink-0 opacity-70" />
+              <a
+                href={user.blog.startsWith("http") ? user.blog : `https://${user.blog}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate hover:text-[var(--foreground)]"
+              >
+                {user.blog.replace(/^https?:\/\//, "")}
+              </a>
+            </div>
           ) : null}
           {user.twitterUsername ? (
-            <a
-              href={`https://twitter.com/${user.twitterUsername}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-neutral-900 dark:hover:text-neutral-100"
-            >
-              𝕏 @{user.twitterUsername}
-            </a>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={`https://twitter.com/${user.twitterUsername}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[var(--foreground)]"
+              >
+                @{user.twitterUsername}
+              </Link>
+            </div>
           ) : null}
-          <span>
+          <div className="w-full text-[13px] sm:w-auto">
             Joined {format(parseISO(user.createdAt), "MMM yyyy")} ·{" "}
             {formatDistanceToNowStrict(parseISO(user.createdAt))} ago
-          </span>
-        </div>
-        <div className="mt-3 flex gap-4 text-xs text-neutral-700 dark:text-neutral-300">
-          <span>
-            <strong className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {user.followers.toLocaleString()}
-            </strong>{" "}
-            followers
-          </span>
-          <span>
-            <strong className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {user.following.toLocaleString()}
-            </strong>{" "}
-            following
-          </span>
-          <span>
-            <strong className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {user.publicRepos.toLocaleString()}
-            </strong>{" "}
-            public repos
-          </span>
+          </div>
+        </dl>
+        <div className="mt-5 flex flex-wrap gap-6 text-sm">
+          <Stat value={user.followers} label="followers" />
+          <Stat value={user.following} label="following" />
+          <Stat value={user.publicRepos} label="public repos" />
         </div>
       </div>
     </header>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <span className="text-[var(--muted)]">
+      <strong className="font-semibold tabular-nums text-[var(--foreground)]">
+        {value.toLocaleString()}
+      </strong>{" "}
+      {label}
+    </span>
   );
 }

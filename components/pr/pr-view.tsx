@@ -35,10 +35,13 @@ export function PRView({ pr, username, prev, next }: Props) {
   const filterInputRef = useRef<HTMLInputElement>(null);
   const diffPanelRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef(new Map<string, HTMLDivElement>());
+  const suspendActiveObserver = useRef(false);
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
   const viewedKey = `gitscope-viewed:${pr.repo.nameWithOwner}#${pr.number}`;
   const [viewed, writeViewed] = useSessionSet(viewedKey);
+  const collapsedKey = `gitscope-diff-collapsed:${pr.repo.nameWithOwner}#${pr.number}`;
+  const [collapsedPaths, writeCollapsed] = useSessionSet(collapsedKey);
 
   // Diff state, keyed by `${owner}/${repo}#${number}`. Resetting on PR change
   // happens via the derived-state-during-render pattern (see below) so we
@@ -97,6 +100,12 @@ export function PRView({ pr, username, prev, next }: Props) {
     return files.filter((f) => f.path.toLowerCase().includes(q));
   }, [files, filter]);
 
+  // Highlight first file once list loads (sidebar + observer need a baseline).
+  useEffect(() => {
+    if (filteredFiles.length === 0) return;
+    setActiveFile((prev) => (prev && filteredFiles.some((f) => f.path === prev) ? prev : filteredFiles[0].path));
+  }, [filteredFiles]);
+
   const reviewCommentsByPath = useMemo(() => {
     const m = new Map<string, ReviewCommentNode[]>();
     for (const r of pr.reviews) {
@@ -110,15 +119,52 @@ export function PRView({ pr, username, prev, next }: Props) {
     return m;
   }, [pr.reviews]);
 
-  // Smooth-scroll the diff panel to a file. Used by file-tree clicks and ◀▶.
-  const scrollToFile = useCallback((path: string) => {
-    const el = sectionRefs.current.get(path);
-    const scroller = diffPanelRef.current;
-    if (!el || !scroller) return;
-    const top = el.offsetTop;
-    scroller.scrollTo({ top, behavior: "smooth" });
-    setActiveFile(path);
-  }, []);
+  const toggleCollapsedPath = useCallback(
+    (path: string) => {
+      const next = new Set(collapsedPaths);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      writeCollapsed(next);
+    },
+    [collapsedPaths, writeCollapsed],
+  );
+
+  /** Alt/Option+click chevron: collapse all if any expanded, else expand all (GitHub-style). */
+  const altCollapseAllToggle = useCallback(() => {
+    const paths = filteredFiles.map((f) => f.path);
+    if (paths.length === 0) return;
+    const anyExpanded = paths.some((p) => !collapsedPaths.has(p));
+    if (anyExpanded) {
+      writeCollapsed(new Set(paths));
+    } else {
+      writeCollapsed(new Set());
+    }
+  }, [collapsedPaths, filteredFiles, writeCollapsed]);
+
+  // Scroll the diff panel to a file. Uses geometry vs. offsetTop so nested /
+  // sticky layout does not break navigation (file tree + [ ] shortcuts).
+  const scrollToFile = useCallback(
+    (path: string) => {
+      const nextCollapsed = new Set(collapsedPaths);
+      nextCollapsed.delete(path);
+      if (nextCollapsed.size !== collapsedPaths.size) {
+        writeCollapsed(nextCollapsed);
+      }
+      const el = sectionRefs.current.get(path);
+      const scroller = diffPanelRef.current;
+      if (!el || !scroller) return;
+      suspendActiveObserver.current = true;
+      setActiveFile(path);
+      const scRect = scroller.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const nextTop = scroller.scrollTop + (elRect.top - scRect.top) - 4;
+      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      window.setTimeout(() => {
+        suspendActiveObserver.current = false;
+      }, 650);
+    },
+    [collapsedPaths, writeCollapsed],
+  );
 
   function jumpFile(dir: 1 | -1) {
     if (filteredFiles.length === 0) return;
@@ -224,14 +270,18 @@ export function PRView({ pr, username, prev, next }: Props) {
             <PRDiffPanel
               panelRef={diffPanelRef}
               sectionRefs={sectionRefs}
+              suspendActiveObserver={suspendActiveObserver}
               files={filteredFiles}
               displayMode={displayMode}
               loading={filesLoading}
               error={filesError}
               viewed={viewed}
-              onToggleViewed={toggleViewed}
               reviewCommentsByPath={reviewCommentsByPath}
+              activeFile={activeFile}
               onActiveFileChange={setActiveFile}
+              collapsedPaths={collapsedPaths}
+              onToggleCollapsed={toggleCollapsedPath}
+              onAltCollapseAll={altCollapseAllToggle}
             />
           </div>
         </>

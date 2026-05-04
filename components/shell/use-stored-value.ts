@@ -2,6 +2,12 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+const STORAGE_NOTIFY = "gitscope-storage-write";
+
+function notifyStorageKey(key: string) {
+  window.dispatchEvent(new CustomEvent(STORAGE_NOTIFY, { detail: { key } }));
+}
+
 /**
  * Reactively reads a string from localStorage. Returns the stored value or
  * `null` when absent. Server snapshot is always `null` to avoid hydration
@@ -13,11 +19,19 @@ export function useStoredValue(
 ): [string | null, (next: string | null) => void] {
   const subscribe = useCallback(
     (cb: () => void) => {
-      const handler = (e: StorageEvent) => {
+      const onStorage = (e: StorageEvent) => {
         if (e.key === key) cb();
       };
-      window.addEventListener("storage", handler);
-      return () => window.removeEventListener("storage", handler);
+      const onSameTab = (e: Event) => {
+        const d = (e as CustomEvent<{ key?: string }>).detail;
+        if (d?.key === key) cb();
+      };
+      window.addEventListener("storage", onStorage);
+      window.addEventListener(STORAGE_NOTIFY, onSameTab);
+      return () => {
+        window.removeEventListener("storage", onStorage);
+        window.removeEventListener(STORAGE_NOTIFY, onSameTab);
+      };
     },
     [key],
   );
@@ -44,9 +58,7 @@ export function useStoredValue(
       } catch {
         return;
       }
-      window.dispatchEvent(
-        new StorageEvent("storage", { key, newValue: next }),
-      );
+      notifyStorageKey(key);
     },
     [key],
   );

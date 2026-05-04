@@ -27,8 +27,8 @@ export function SidebarNav({ username }: Props) {
   const base = `/u/${username}`;
 
   return (
-    <nav className="border-t border-neutral-200 px-2 py-1.5 dark:border-neutral-800">
-      <ul className="space-y-0.5">
+    <nav className="px-3 pb-2 pt-1">
+      <ul className="flex flex-col gap-0.5">
         {ITEMS.map(({ id, label, href, Icon }) => {
           const target = href(username);
           const active =
@@ -40,13 +40,13 @@ export function SidebarNav({ username }: Props) {
               <Link
                 href={target}
                 className={clsx(
-                  "flex items-center gap-2 rounded px-2 py-1.5 text-[13px] transition",
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition",
                   active
-                    ? "bg-blue-100 font-medium text-blue-900 dark:bg-blue-900/40 dark:text-blue-200"
-                    : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
+                    ? "bg-zinc-900 font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]",
                 )}
               >
-                <Icon size={14} />
+                <Icon size={16} strokeWidth={1.75} className="shrink-0 opacity-90" />
                 <span>{label}</span>
               </Link>
             </li>

@@ -10,7 +10,7 @@ import { useStoredValue } from "./use-stored-value";
 
 const SIDEBAR_WIDTH_KEY = "gitscope-sidebar-w";
 const SIDEBAR_OPEN_KEY = "gitscope-sidebar-open";
-const DEFAULT_W = 260;
+const DEFAULT_W = 280;
 const MIN_W = 200;
 const MAX_W = 480;
 
@@ -168,25 +168,31 @@ export function AppShell({
         <div
           className={
             open
-              ? "relative app-sidebar border-r border-neutral-200 bg-neutral-50/60 dark:border-neutral-800 dark:bg-neutral-950/40"
+              ? "relative flex h-full min-h-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] dark:bg-[var(--surface)]"
               : "hidden"
           }
         >
-          <Sidebar
-            user={user}
-            username={username}
-            externalGroups={externalGroups}
-            ownGroups={ownGroups}
-            savedList={savedList}
-          />
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            onPointerDown={startResize}
-            className="absolute right-[-3px] top-0 z-20 h-full w-1.5 cursor-col-resize hover:bg-blue-400/40"
-          />
+          <div className="app-sidebar scrollbar-thin relative z-10 min-h-0 flex-1">
+            <Sidebar
+              user={user}
+              username={username}
+              externalGroups={externalGroups}
+              ownGroups={ownGroups}
+              savedList={savedList}
+            />
+          </div>
+          {/* Narrow hit target so repo-row clicks are not stolen by the resize strip */}
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex w-2 justify-end">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              title="Drag to resize sidebar"
+              onPointerDown={startResize}
+              className="pointer-events-auto w-1.5 shrink-0 cursor-col-resize touch-none hover:bg-indigo-400/25"
+            />
+          </div>
         </div>
-        <main className="app-main">{children}</main>
+        <main className="app-main bg-[var(--background)]">{children}</main>
       </div>
     </div>
   );

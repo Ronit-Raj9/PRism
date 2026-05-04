@@ -44,7 +44,7 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className="min-h-full bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+        className="min-h-full bg-[var(--background)] text-[var(--foreground)] antialiased"
       >
         {children}
       </body>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import { GitPullRequest, Moon, PanelLeft, Scale, Sun } from "lucide-react";
+import { Moon, PanelLeft, Scale, Sun } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
 import { SaveButton } from "@/components/save-button";
 
@@ -24,39 +24,43 @@ export function TopBar({
   onToggleSidebar,
 }: Props) {
   return (
-    <header className="z-30 flex h-12 shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-800 dark:bg-neutral-950">
+    <header className="z-30 flex h-[52px] shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)]/90 px-3 backdrop-blur-md dark:bg-[var(--surface)]/85">
       <button
         onClick={onToggleSidebar}
         title="Toggle sidebar (B)"
-        className="rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
       >
-        <PanelLeft size={16} />
+        <PanelLeft size={18} strokeWidth={1.75} />
       </button>
       <Link
         href="/"
-        className="mr-1 flex items-center gap-1.5 text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100"
+        className="hidden shrink-0 text-sm font-semibold tracking-tight text-[var(--foreground)] sm:block"
       >
-        <GitPullRequest size={14} className="text-violet-500" />
         GitScope
       </Link>
-      <div data-topbar-search className="flex-1 max-w-xl">
-        <SearchBar initial={username} />
+      <div data-topbar-search className="min-w-0 flex-1">
+        <SearchBar initial={username} variant="shell" />
       </div>
-      <CacheChip
-        state={cacheState}
-        fetchedAt={fetchedAt}
-        rateRemaining={rateRemaining}
-      />
-      <Link
-        href={`/compare?u=${encodeURIComponent(username)}`}
-        title="Compare profiles"
-        className="hidden items-center gap-1 rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 md:inline-flex dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-      >
-        <Scale size={14} />
-        <span className="text-[11px] font-medium">Compare</span>
-      </Link>
-      <SaveButton username={username} initialSaved={initiallySaved} />
-      <ThemeToggle />
+      <div className="hidden shrink-0 items-center gap-1 md:flex">
+        <CacheChip
+          state={cacheState}
+          fetchedAt={fetchedAt}
+          rateRemaining={rateRemaining}
+        />
+        <Link
+          href={`/compare?u=${encodeURIComponent(username)}`}
+          title="Compare profiles"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        >
+          <Scale size={17} strokeWidth={1.75} />
+        </Link>
+        <SaveButton username={username} initialSaved={initiallySaved} />
+        <ThemeToggle />
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5 md:hidden">
+        <SaveButton username={username} initialSaved={initiallySaved} compact />
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
@@ -70,29 +74,23 @@ function CacheChip({
   fetchedAt: string;
   rateRemaining: number | null;
 }) {
-  const cls =
-    state === "fresh"
-      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-      : state === "stale"
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-        : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200";
   const dot =
     state === "fresh"
       ? "bg-emerald-500"
       : state === "stale"
         ? "bg-amber-500"
-        : "bg-blue-500";
+        : "bg-sky-500";
   const label = state === "fresh" ? "Fresh" : state === "stale" ? "Stale" : "Live";
   const title =
-    `Fetched ${fetchedAt}` +
-    (rateRemaining !== null ? ` · GitHub rate limit: ${rateRemaining}` : "");
+    `${label} · Fetched ${fetchedAt}` +
+    (rateRemaining !== null ? ` · API: ${rateRemaining}` : "");
   return (
     <span
       title={title}
-      className={`hidden items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium md:inline-flex ${cls}`}
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[11px] font-medium text-[var(--muted)]"
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-      {label}
+      <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+      <span className="hidden lg:inline">{label}</span>
     </span>
   );
 }
@@ -123,10 +121,10 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      title={dark ? "Switch to light" : "Switch to dark"}
-      className="rounded p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+      title={dark ? "Light mode" : "Dark mode"}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
     >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {dark ? <Sun size={17} strokeWidth={1.75} /> : <Moon size={17} strokeWidth={1.75} />}
     </button>
   );
 }

@@ -55,7 +55,7 @@ export function Sidebar({
   }
 
   return (
-    <div className="flex min-h-full flex-col text-sm">
+    <div className="flex min-h-full flex-col text-[13px] leading-snug">
       <ProfileChip user={user} />
       <SidebarNav username={username} />
       <SidebarControls
@@ -154,32 +154,32 @@ function SidebarSection({
 }) {
   const filtered = count !== totalCount;
   return (
-    <div className="border-t border-neutral-200 dark:border-neutral-800">
+    <div className="border-t border-[var(--border)]">
       <button
         onClick={onToggle}
         aria-expanded={!collapsed}
         aria-controls={`section-${id}`}
-        className="flex w-full items-center gap-1 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 transition hover:text-neutral-800 dark:hover:text-neutral-200"
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-[var(--muted)] transition hover:text-[var(--foreground)]"
       >
         {collapsed ? (
-          <ChevronRight size={10} className="text-neutral-400" />
+          <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 opacity-60" />
         ) : (
-          <ChevronDown size={10} className="text-neutral-400" />
+          <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 opacity-60" />
         )}
-        <span>{title}</span>
+        <span className="text-[var(--foreground)]">{title}</span>
         <span
           className={clsx(
-            "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-medium",
+            "ml-auto rounded-md px-2 py-0.5 text-[10px] font-medium tabular-nums",
             filtered
-              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
-              : "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400",
+              ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
+              : "bg-[var(--surface-2)] text-[var(--muted)]",
           )}
         >
           {filtered ? `${count}/${totalCount}` : totalCount}
         </span>
       </button>
       {!collapsed ? (
-        <div id={`section-${id}`} className="pb-1">
+        <div id={`section-${id}`} className="px-1 pb-2">
           {children}
         </div>
       ) : null}

@@ -27,47 +27,47 @@ export function SavedSwitcher({ items }: { items: SavedItem[] }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-2)]"
       >
-        <span>★</span>
+        <span className="text-amber-500">★</span>
         <span>Saved</span>
         {items.length > 0 ? (
-          <span className="rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+          <span className="rounded-md bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--muted)]">
             {items.length}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-20 mt-1 max-h-[70vh] w-80 overflow-y-auto rounded-md border border-neutral-200 bg-white shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="absolute right-0 z-20 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg shadow-black/5 dark:shadow-black/40">
           {items.length === 0 ? (
-            <div className="p-4 text-center text-sm text-neutral-500">
+            <div className="p-5 text-center text-sm text-[var(--muted)]">
               No saved profiles yet.
               <br />
-              Click ☆ Save on any profile to add it here.
+              <span className="mt-2 inline-block text-xs">Use Save on a profile page to add one.</span>
             </div>
           ) : (
             <>
-              <div className="border-b border-neutral-200 px-3 py-2 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:border-neutral-800">
-                Your watchlist
+              <div className="border-b border-[var(--border)] px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+                Watchlist
               </div>
               <ul>
                 {items.map((it) => (
                   <li
                     key={it.username}
-                    className="border-t border-neutral-100 first:border-t-0 dark:border-neutral-800"
+                    className="border-t border-[var(--border)] first:border-t-0"
                   >
                     <Link
                       href={`/u/${it.username}`}
                       onClick={() => setOpen(false)}
-                      className="block px-3 py-2 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                      className="block px-4 py-2.5 transition hover:bg-[var(--surface-2)]"
                     >
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="font-medium">
                           {it.label ?? it.username}
                         </span>
                         {it.lastVisitedAt ? (
-                          <span className="shrink-0 text-[10px] text-neutral-500">
+                          <span className="shrink-0 text-[10px] text-[var(--muted)]">
                             {formatDistanceToNowStrict(new Date(it.lastVisitedAt))} ago
                           </span>
                         ) : (
@@ -77,12 +77,12 @@ export function SavedSwitcher({ items }: { items: SavedItem[] }) {
                         )}
                       </div>
                       {it.label && it.label !== it.username ? (
-                        <div className="font-mono text-[11px] text-neutral-500">
+                        <div className="font-mono text-[11px] text-[var(--muted)]">
                           @{it.username}
                         </div>
                       ) : null}
                       {it.note ? (
-                        <div className="mt-1 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
+                        <div className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">
                           {it.note}
                         </div>
                       ) : null}

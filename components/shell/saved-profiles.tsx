@@ -19,27 +19,27 @@ export function SavedProfiles({
   onToggle,
 }: Props) {
   return (
-    <div className="mt-auto border-t border-neutral-200 dark:border-neutral-800">
+    <div className="mt-auto border-t border-[var(--border)]">
       <button
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="flex w-full items-center gap-1 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 transition hover:text-neutral-800 dark:hover:text-neutral-200"
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-xs font-medium text-[var(--muted)] transition hover:text-[var(--foreground)]"
       >
         {collapsed ? (
-          <ChevronRight size={10} className="text-neutral-400" />
+          <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 opacity-60" />
         ) : (
-          <ChevronDown size={10} className="text-neutral-400" />
+          <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 opacity-60" />
         )}
-        <span>Saved</span>
-        <span className="ml-auto rounded-full bg-neutral-200 px-1.5 py-0.5 text-[9px] font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="text-[var(--foreground)]">Saved</span>
+        <span className="ml-auto rounded-md bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-medium tabular-nums text-[var(--muted)]">
           {items.length}
         </span>
       </button>
       {!collapsed ? (
-        <ul className="px-2 pb-3">
+        <ul className="space-y-0.5 px-2 pb-4">
           {items.length === 0 ? (
-            <li className="px-1 py-1 text-[11px] italic text-neutral-500">
-              Click ☆ Save in the top bar to add this profile.
+            <li className="rounded-lg px-3 py-2 text-xs italic text-[var(--muted)]">
+              Save this profile from the top bar to pin it here.
             </li>
           ) : (
             items.map((s) => {
@@ -50,13 +50,20 @@ export function SavedProfiles({
                   <Link
                     href={`/u/${s.username}`}
                     className={clsx(
-                      "flex items-center gap-1.5 rounded px-1.5 py-1 text-[12px] transition",
+                      "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
                       isCurrent
-                        ? "bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-                        : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/50",
+                        ? "bg-[var(--surface-2)] font-medium text-[var(--foreground)]"
+                        : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]",
                     )}
                   >
-                    <Star size={10} className="shrink-0 text-amber-500" />
+                    <Star
+                      size={14}
+                      strokeWidth={1.75}
+                      className={clsx(
+                        "shrink-0",
+                        isCurrent ? "text-amber-500" : "text-[var(--muted)]",
+                      )}
+                    />
                     <span className="truncate">{s.label ?? s.username}</span>
                   </Link>
                 </li>
@@ -66,10 +73,10 @@ export function SavedProfiles({
           <li>
             <Link
               href="/"
-              className="mt-1 flex items-center gap-1.5 rounded px-1.5 py-1 text-[12px] text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800/50 dark:hover:text-neutral-100"
+              className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
             >
-              <Plus size={10} />
-              Add profile…
+              <Plus size={14} strokeWidth={1.75} />
+              Add profile
             </Link>
           </li>
         </ul>

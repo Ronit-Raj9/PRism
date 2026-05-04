@@ -19,6 +19,7 @@
   "dependencies": {
     "@octokit/graphql": "^9.0.3",
     "@octokit/rest": "^22.0.1",
+    "@tanstack/react-virtual": "^3.13.24",
     "better-sqlite3": "^12.9.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

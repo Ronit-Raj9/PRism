@@ -95,14 +95,12 @@ export function RepoTree({ username, groups, storageKey }: Props) {
 
   if (groups.length === 0) {
     return (
-      <p className="px-3 py-2 text-[11px] italic text-neutral-500">
-        No repositories match.
-      </p>
+      <p className="px-4 py-3 text-xs italic text-[var(--muted)]">No repositories match.</p>
     );
   }
 
   return (
-    <ul className="space-y-px">
+    <ul className="space-y-0.5">
       {groups.map((g) => (
         <RepoRow
           key={g.repo}
@@ -186,24 +184,24 @@ const RepoRow = memo(function RepoRow({
     <li>
       <button
         onClick={() => onToggle(g.repo)}
-        className="flex w-full items-center gap-1 px-2 py-1 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-[var(--surface-2)]"
       >
         {isOpen ? (
-          <ChevronDown size={12} className="shrink-0 text-neutral-400" />
+          <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 text-[var(--muted)]" />
         ) : (
-          <ChevronRight size={12} className="shrink-0 text-neutral-400" />
+          <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 text-[var(--muted)]" />
         )}
-        <span className="flex-1 truncate font-mono text-[12px] text-neutral-800 dark:text-neutral-200">
+        <span className="flex-1 truncate font-mono text-xs text-[var(--foreground)]">
           {g.repo}
         </span>
-        <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-neutral-500">
-          <Star size={10} className="fill-current" />
+        <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-[var(--muted)]">
+          <Star size={11} strokeWidth={1.75} className="fill-amber-400/80 text-amber-500" />
           {fmtCount(g.stars)}
         </span>
       </button>
 
       {isOpen ? (
-        <div className="pl-5 pr-2 pb-1.5">
+        <div className="px-2 pb-2 pl-4">
           <MiniStats
             total={g.prs.length}
             merged={g.mergedPRs}
@@ -216,7 +214,7 @@ const RepoRow = memo(function RepoRow({
           />
           <ul className="mt-1 space-y-px">
             {visiblePRs.length === 0 ? (
-              <li className="px-1 py-1 text-[10.5px] italic text-neutral-500">
+              <li className="rounded-lg px-2 py-1.5 text-[11px] italic text-[var(--muted)]">
                 No PRs match.
               </li>
             ) : (
@@ -229,21 +227,19 @@ const RepoRow = memo(function RepoRow({
                       data-pr-row
                       data-pr-active={isActive ? "true" : undefined}
                       className={clsx(
-                        "flex items-center gap-1.5 rounded-sm border-l-2 py-0.5 pl-1.5 pr-1 text-[11.5px] transition",
+                        "flex items-center gap-2 rounded-lg py-1.5 pl-2 pr-2 text-[12px] transition",
                         isActive
-                          ? "border-teal-500 bg-teal-500/10 text-neutral-900 dark:text-neutral-50"
-                          : "border-transparent text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/50",
+                          ? "bg-indigo-500/12 text-[var(--foreground)] ring-1 ring-indigo-500/25"
+                          : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]",
                       )}
                       title={pr.title}
                     >
                       <PRStateIcon state={pr.state} />
-                      <span className="flex-1 truncate">{pr.title}</span>
+                      <span className="min-w-0 flex-1 truncate">{pr.title}</span>
                       <span
                         className={clsx(
                           "shrink-0 text-[10px] tabular-nums",
-                          pr.additions > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-neutral-500",
+                          pr.additions > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-[var(--muted)]",
                         )}
                       >
                         +{fmtCount(pr.additions)}
@@ -257,9 +253,9 @@ const RepoRow = memo(function RepoRow({
           {remaining > 0 ? (
             <button
               onClick={() => onExpandShowAll(g.repo)}
-              className="mt-0.5 px-1 py-0.5 text-[10.5px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+              className="mt-1 w-full rounded-lg py-1.5 text-center text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
             >
-              ··· {remaining} more ↓
+              Show {remaining} more
             </button>
           ) : null}
         </div>
@@ -288,13 +284,9 @@ function MiniStats({
   setActive: (f: StateFilter) => void;
 }) {
   return (
-    <div className="space-y-1 rounded bg-neutral-100 p-1 dark:bg-neutral-800/60">
-      <div className="flex items-center gap-1 text-[9.5px]">
-        <Pill
-          active={active === "all"}
-          onClick={() => setActive("all")}
-          color="neutral"
-        >
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)]/80 p-1.5">
+      <div className="flex flex-wrap items-center gap-1">
+        <Pill active={active === "all"} onClick={() => setActive("all")} color="neutral">
           All {total}
         </Pill>
         <Pill
@@ -303,7 +295,7 @@ function MiniStats({
           color="violet"
           disabled={merged === 0}
         >
-          ⊙ {merged}
+          {merged}
         </Pill>
         <Pill
           active={active === "open"}
@@ -311,7 +303,7 @@ function MiniStats({
           color="emerald"
           disabled={open === 0}
         >
-          ↗ {open}
+          {open}
         </Pill>
         <Pill
           active={active === "closed"}
@@ -319,17 +311,13 @@ function MiniStats({
           color="rose"
           disabled={closed === 0}
         >
-          ✕ {closed}
+          {closed}
         </Pill>
       </div>
-      <div className="flex items-center gap-2 px-1 font-mono text-[9.5px] text-neutral-500">
-        <span className="text-emerald-700 dark:text-emerald-400">
-          +{fmtCount(added)}
-        </span>
-        <span className="text-rose-700 dark:text-rose-400">
-          −{fmtCount(removed)}
-        </span>
-        <span>loc</span>
+      <div className="mt-1.5 flex items-center gap-2 px-1 font-mono text-[10px] text-[var(--muted)]">
+        <span className="text-emerald-600 dark:text-emerald-400">+{fmtCount(added)}</span>
+        <span className="text-rose-600 dark:text-rose-400">−{fmtCount(removed)}</span>
+        <span>lines</span>
       </div>
     </div>
   );
@@ -349,13 +337,15 @@ function Pill({
   children: React.ReactNode;
 }) {
   const cls = clsx(
-    "rounded px-1.5 py-0.5 transition",
-    disabled && "cursor-not-allowed opacity-40",
-    !disabled && !active && "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700",
-    active && color === "neutral" && "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
-    active && color === "violet" && "bg-violet-500 text-white",
-    active && color === "emerald" && "bg-emerald-500 text-white",
-    active && color === "rose" && "bg-rose-500 text-white",
+    "rounded-md px-2 py-1 text-[10px] font-medium tabular-nums transition",
+    disabled && "cursor-not-allowed opacity-35",
+    !disabled &&
+      !active &&
+      "text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
+    active && color === "neutral" && "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900",
+    active && color === "violet" && "bg-violet-600 text-white",
+    active && color === "emerald" && "bg-emerald-600 text-white",
+    active && color === "rose" && "bg-rose-600 text-white",
   );
   return (
     <button

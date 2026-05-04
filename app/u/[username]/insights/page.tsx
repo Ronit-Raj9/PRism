@@ -32,9 +32,12 @@ export default async function InsightsPage({ params }: PageProps) {
   const score = computeGitScopeScore(summary);
 
   return (
-    <div className="app-main-scroll">
-      <div className="mx-auto max-w-6xl px-6 py-6">
-        <h1 className="mb-4 text-lg font-semibold">Insights</h1>
+    <div className="app-main-scroll scrollbar-thin">
+      <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 sm:py-12">
+        <header className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-widest text-[var(--muted)]">Profile</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Insights</h1>
+        </header>
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ArchetypeCard archetype={archetype} />
           <GitScopeScoreCard score={score} />

@@ -26,10 +26,10 @@ export default async function OverviewPage({ params }: PageProps) {
   const events = buildTimeline(bundle, bundle.user.login);
 
   return (
-    <div className="app-main-scroll">
-      <div className="mx-auto max-w-6xl px-6 py-6">
+    <div className="app-main-scroll scrollbar-thin">
+      <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 sm:py-12">
         <ProfileHeader user={bundle.user} />
-        <div className="pt-6">
+        <div className="pt-10">
           <OverviewDashboard
             bundle={bundle}
             username={username}

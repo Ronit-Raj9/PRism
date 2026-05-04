@@ -8,12 +8,22 @@
 
 :root {
   --background: #fafafa;
-  --foreground: #0a0a0a;
+  --foreground: #18181b;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --border: rgba(24, 24, 27, 0.08);
+  --border-strong: rgba(24, 24, 27, 0.12);
+  --muted: #71717a;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --surface: #18181b;
+  --surface-2: #27272a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --muted: #a1a1aa;
 }
 
 @theme inline {
@@ -29,6 +39,62 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
+/* Shared form controls — keeps the UI consistent across pages */
+.ui-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ui-input:focus {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.dark .ui-input:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ui-select {
+  width: 100%;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-strong);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ui-select:focus {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.dark .ui-select:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ui-panel {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.dark .ui-panel {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
 /* The whole app is a flex column inside a viewport that never scrolls.
    Profile-shell pages opt into this by setting `data-app="shell"` on <html>. */
 html[data-app="shell"],
@@ -39,12 +105,12 @@ html[data-app="shell"] body {
 
 .app-shell {
   display: grid;
-  grid-template-rows: 48px 1fr;
+  grid-template-rows: 52px 1fr;
   height: 100vh;
 }
 .app-body {
   display: grid;
-  grid-template-columns: var(--sidebar-w, 260px) 1fr;
+  grid-template-columns: var(--sidebar-w, 280px) 1fr;
   min-height: 0;
   overflow: hidden;
 }
@@ -73,7 +139,7 @@ html[data-app="shell"] body {
 }
 .pr-body {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: minmax(200px, 280px) 1fr;
   min-height: 0;
   overflow: hidden;
 }
@@ -100,19 +166,114 @@ html[data-app="shell"] body {
   margin: 0;
 }
 
-/* diff2html ships matching .d2h-light-color-scheme / .d2h-dark-color-scheme
-   classes; pr-diff-panel selects the right one based on our app theme. No
-   manual variable overrides needed here. */
+/* Side-by-side: vertical scroll stays on `.pr-diff`; each half only scrolls X.
+   Fixes line gutters drifting from code when an outer wrapper captured Y-scroll. */
+.diff-container--split {
+  overflow-x: visible;
+}
+.diff-container--split .d2h-file-diff {
+  overflow: visible !important;
+}
+.diff-container--split .d2h-files-diff {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.diff-container--split .d2h-file-side-diff {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 50%;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+}
+.diff-container--split .d2h-file-side-diff::-webkit-scrollbar {
+  height: 8px;
+}
+.diff-container--split .d2h-file-side-diff::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.diff-container--split .d2h-code-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+.diff-container .d2h-diff-table td {
+  position: relative;
+  vertical-align: top;
+}
+
+/* PR + diff scrollbars (Firefox + WebKit) */
+.pr-diff,
+.pr-tree {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+.pr-diff::-webkit-scrollbar,
+.pr-tree::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.pr-diff::-webkit-scrollbar-thumb,
+.pr-tree::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.pr-diff::-webkit-scrollbar-thumb:hover,
+.pr-tree::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+  background-clip: padding-box;
+}
+.pr-diff::-webkit-scrollbar-corner,
+.pr-tree::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.diff-container.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+.diff-container.overflow-x-auto::-webkit-scrollbar {
+  height: 10px;
+}
+.diff-container.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.dark .pr-diff,
+.dark .pr-tree {
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+.dark .pr-diff::-webkit-scrollbar-thumb,
+.dark .pr-tree::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+}
+.dark .pr-diff::-webkit-scrollbar-thumb:hover,
+.dark .pr-tree::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+.dark .diff-container.overflow-x-auto::-webkit-scrollbar-thumb,
+.dark .diff-container--split .d2h-file-side-diff::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+}
 
 /* Hide scrollbars where we want subtle scrolling */
 .scrollbar-thin {
   scrollbar-width: thin;
 }
 .scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(120, 120, 120, 0.3);
-  border-radius: 4px;
+  background: rgba(120, 120, 120, 0.22);
+  border-radius: 999px;
 }

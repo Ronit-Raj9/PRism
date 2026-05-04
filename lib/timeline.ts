@@ -1,3 +1,4 @@
+import { subDays } from "date-fns";
 import type {
   ProfileBundle,
   PRNode,
@@ -212,6 +213,71 @@ export function buildTimeline(
   return events;
 }
 
+/** Slim rows for filtering and counts — no bodies or nested payloads. */
+export interface TimelineEventIndexItem {
+  id: string;
+  kind: EventKind;
+  atIso: string;
+  repo: string;
+  ownerLogin: string;
+  isExternal: boolean;
+}
+
+export function toTimelineEventIndex(events: readonly TimelineEvent[]): TimelineEventIndexItem[] {
+  return events.map((e) => ({
+    id: e.id,
+    kind: e.kind,
+    atIso: e.at.toISOString(),
+    repo: e.repo,
+    ownerLogin: e.ownerLogin,
+    isExternal: e.isExternal,
+  }));
+}
+
+export type TimelineScope = "all" | "external" | "own";
+export type TimelineDateRange = "7d" | "30d" | "90d" | "1y" | "all";
+
+export interface TimelineFilterParams {
+  scope: TimelineScope;
+  dateRange: TimelineDateRange;
+  kinds: ReadonlySet<EventKind>;
+  orgFilter: string;
+  repoFilter: string;
+}
+
+function cutoffForDateRange(dateRange: TimelineDateRange): Date | null {
+  if (dateRange === "all") return null;
+  const days =
+    dateRange === "7d"
+      ? 7
+      : dateRange === "30d"
+        ? 30
+        : dateRange === "90d"
+          ? 90
+          : 365;
+  return subDays(new Date(), days);
+}
+
+/** Same filter semantics as the timeline UI — used client + API route. */
+export function filterTimelineIndex(
+  items: readonly TimelineEventIndexItem[],
+  params: TimelineFilterParams,
+): TimelineEventIndexItem[] {
+  const cutoff = cutoffForDateRange(params.dateRange);
+  const orgLower = params.orgFilter.trim().toLowerCase();
+  const repoNeedle = params.repoFilter;
+
+  return items.filter((e) => {
+    if (!params.kinds.has(e.kind)) return false;
+    if (params.scope === "external" && !e.isExternal) return false;
+    if (params.scope === "own" && e.isExternal) return false;
+    if (orgLower && e.ownerLogin.toLowerCase() !== orgLower) return false;
+    if (repoNeedle && e.repo !== repoNeedle) return false;
+    if (cutoff && new Date(e.atIso).getTime() < cutoff.getTime()) return false;
+    return true;
+  });
+}
+
 export function uniqueRepos(events: readonly { repo: string }[]): string[] {
   return Array.from(new Set(events.map((e) => e.repo))).sort();
 }
@@ -235,8 +301,8 @@ export function uniqueOrgs(events: readonly { ownerLogin: string }[]): OrgTally[
   );
 }
 
-const MAX_CLIENT_BODY = 10_000;
-const MAX_CLIENT_HUNK = 5_000;
+const MAX_CLIENT_BODY = 4_000;
+const MAX_CLIENT_HUNK = 2_000;
 
 function truncClient(s: string | null | undefined, max: number): string {
   if (s == null || s === "") return "";
@@ -328,108 +394,237 @@ export interface ClientTimelineEvent {
   issueCommentCount?: number;
 }
 
-export function toClientTimelineEvents(events: TimelineEvent[]): ClientTimelineEvent[] {
-  return events.map((e) => {
-    const base: ClientTimelineEvent = {
-      id: e.id,
-      kind: e.kind,
-      atIso: e.at.toISOString(),
-      repo: e.repo,
-      ownerLogin: e.ownerLogin,
-      isExternal: e.isExternal,
-      rowTitle: timelineRowTitle(e),
-      expandable: timelineExpandable(e),
-    };
+export function toClientTimelineEvent(e: TimelineEvent): ClientTimelineEvent {
+  const base: ClientTimelineEvent = {
+    id: e.id,
+    kind: e.kind,
+    atIso: e.at.toISOString(),
+    repo: e.repo,
+    ownerLogin: e.ownerLogin,
+    isExternal: e.isExternal,
+    rowTitle: timelineRowTitle(e),
+    expandable: timelineExpandable(e),
+  };
 
-    switch (e.kind) {
-      case "PR_OPENED":
-      case "PR_MERGED":
-      case "PR_CLOSED": {
-        const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
-        return {
-          ...base,
-          prOwner: owner,
-          prRepo: repo,
-          prNumber: e.pr.number,
-          githubUrl: e.pr.url,
-          bodyPreview: truncClient(e.pr.body, MAX_CLIENT_BODY),
-          additions: e.pr.additions,
-          deletions: e.pr.deletions,
-          changedFiles: e.pr.changedFiles,
-          mergedAt: e.pr.mergedAt,
-          prCreatedAt: e.pr.createdAt,
-          prClosedAt: e.pr.closedAt,
-        };
-      }
-      case "ISSUE_OPENED":
-      case "ISSUE_CLOSED": {
-        const { owner, repo } = parseOwnerRepo(e.issue.repo.nameWithOwner);
-        return {
-          ...base,
-          issueOwner: owner,
-          issueRepo: repo,
-          issueNumber: e.issue.number,
-          issueTitle: e.issue.title,
-          githubUrl: e.issue.url,
-          labels: e.issue.labels,
-          bodyPreview: truncClient(e.issue.body, MAX_CLIENT_BODY),
-          issueCommentCount: e.issue.comments.length,
-        };
-      }
-      case "PR_COMMENT": {
-        const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
-        return {
-          ...base,
-          prOwner: owner,
-          prRepo: repo,
-          prNumber: e.pr.number,
-          githubUrl: e.pr.url,
-          changedFiles: e.pr.changedFiles,
-          contextLine: `On PR ${e.pr.repo.nameWithOwner}#${e.pr.number} — ${e.pr.title}`,
-          bodyPreview: truncClient(e.comment.body, MAX_CLIENT_BODY),
-        };
-      }
-      case "ISSUE_COMMENT": {
-        const { owner, repo } = parseOwnerRepo(e.issue.repo.nameWithOwner);
-        return {
-          ...base,
-          issueOwner: owner,
-          issueRepo: repo,
-          issueNumber: e.issue.number,
-          githubUrl: e.issue.url,
-          contextLine: `On issue ${e.issue.repo.nameWithOwner}#${e.issue.number} — ${e.issue.title}`,
-          bodyPreview: truncClient(e.comment.body, MAX_CLIENT_BODY),
-        };
-      }
-      case "REVIEW_GIVEN": {
-        const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
-        return {
-          ...base,
-          prOwner: owner,
-          prRepo: repo,
-          prNumber: e.pr.number,
-          githubUrl: e.pr.url,
-          changedFiles: e.pr.changedFiles,
-          contextLine: `Review on ${e.pr.repo.nameWithOwner}#${e.pr.number} — ${e.pr.title}`,
-          reviewState: e.review.state,
-          bodyPreview: truncClient(e.review.body, MAX_CLIENT_BODY),
-        };
-      }
-      case "REVIEW_COMMENT": {
-        const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
-        return {
-          ...base,
-          prOwner: owner,
-          prRepo: repo,
-          prNumber: e.pr.number,
-          githubUrl: e.pr.url,
-          changedFiles: e.pr.changedFiles,
-          reviewPath: e.reviewComment.path,
-          reviewLine: e.reviewComment.line,
-          diffHunkPreview: truncClient(e.reviewComment.diffHunk, MAX_CLIENT_HUNK),
-          bodyPreview: truncClient(e.reviewComment.body, MAX_CLIENT_BODY),
-        };
-      }
+  switch (e.kind) {
+    case "PR_OPENED":
+    case "PR_MERGED":
+    case "PR_CLOSED": {
+      const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
+      return {
+        ...base,
+        prOwner: owner,
+        prRepo: repo,
+        prNumber: e.pr.number,
+        githubUrl: e.pr.url,
+        bodyPreview: truncClient(e.pr.body, MAX_CLIENT_BODY),
+        additions: e.pr.additions,
+        deletions: e.pr.deletions,
+        changedFiles: e.pr.changedFiles,
+        mergedAt: e.pr.mergedAt,
+        prCreatedAt: e.pr.createdAt,
+        prClosedAt: e.pr.closedAt,
+      };
     }
+    case "ISSUE_OPENED":
+    case "ISSUE_CLOSED": {
+      const { owner, repo } = parseOwnerRepo(e.issue.repo.nameWithOwner);
+      return {
+        ...base,
+        issueOwner: owner,
+        issueRepo: repo,
+        issueNumber: e.issue.number,
+        issueTitle: e.issue.title,
+        githubUrl: e.issue.url,
+        labels: e.issue.labels,
+        bodyPreview: truncClient(e.issue.body, MAX_CLIENT_BODY),
+        issueCommentCount: e.issue.comments.length,
+      };
+    }
+    case "PR_COMMENT": {
+      const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
+      return {
+        ...base,
+        prOwner: owner,
+        prRepo: repo,
+        prNumber: e.pr.number,
+        githubUrl: e.pr.url,
+        changedFiles: e.pr.changedFiles,
+        contextLine: `On PR ${e.pr.repo.nameWithOwner}#${e.pr.number} — ${e.pr.title}`,
+        bodyPreview: truncClient(e.comment.body, MAX_CLIENT_BODY),
+      };
+    }
+    case "ISSUE_COMMENT": {
+      const { owner, repo } = parseOwnerRepo(e.issue.repo.nameWithOwner);
+      return {
+        ...base,
+        issueOwner: owner,
+        issueRepo: repo,
+        issueNumber: e.issue.number,
+        githubUrl: e.issue.url,
+        contextLine: `On issue ${e.issue.repo.nameWithOwner}#${e.issue.number} — ${e.issue.title}`,
+        bodyPreview: truncClient(e.comment.body, MAX_CLIENT_BODY),
+      };
+    }
+    case "REVIEW_GIVEN": {
+      const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
+      return {
+        ...base,
+        prOwner: owner,
+        prRepo: repo,
+        prNumber: e.pr.number,
+        githubUrl: e.pr.url,
+        changedFiles: e.pr.changedFiles,
+        contextLine: `Review on ${e.pr.repo.nameWithOwner}#${e.pr.number} — ${e.pr.title}`,
+        reviewState: e.review.state,
+        bodyPreview: truncClient(e.review.body, MAX_CLIENT_BODY),
+      };
+    }
+    case "REVIEW_COMMENT": {
+      const { owner, repo } = parseOwnerRepo(e.pr.repo.nameWithOwner);
+      return {
+        ...base,
+        prOwner: owner,
+        prRepo: repo,
+        prNumber: e.pr.number,
+        githubUrl: e.pr.url,
+        changedFiles: e.pr.changedFiles,
+        reviewPath: e.reviewComment.path,
+        reviewLine: e.reviewComment.line,
+        diffHunkPreview: truncClient(e.reviewComment.diffHunk, MAX_CLIENT_HUNK),
+        bodyPreview: truncClient(e.reviewComment.body, MAX_CLIENT_BODY),
+      };
+    }
+  }
+}
+
+export function toClientTimelineEvents(events: TimelineEvent[]): ClientTimelineEvent[] {
+  return events.map(toClientTimelineEvent);
+}
+
+// Defensive re-truncate. If a stale cache hands the client a row whose
+// `bodyPreview` / `diffHunkPreview` predates the current MAX_CLIENT_* caps,
+// applying this on the way into render keeps the renderer out of OOM range.
+export function clampClientTimelineEvent(e: ClientTimelineEvent): ClientTimelineEvent {
+  const body =
+    e.bodyPreview && e.bodyPreview.length > MAX_CLIENT_BODY
+      ? `${e.bodyPreview.slice(0, MAX_CLIENT_BODY)}…`
+      : e.bodyPreview;
+  const hunk =
+    e.diffHunkPreview && e.diffHunkPreview.length > MAX_CLIENT_HUNK
+      ? `${e.diffHunkPreview.slice(0, MAX_CLIENT_HUNK)}…`
+      : e.diffHunkPreview;
+  if (body === e.bodyPreview && hunk === e.diffHunkPreview) return e;
+  return { ...e, bodyPreview: body, diffHunkPreview: hunk };
+}
+
+/** All event kinds the timeline UI can toggle — default “everything on”. */
+export const ALL_TIMELINE_EVENT_KINDS: readonly EventKind[] = [
+  "PR_OPENED",
+  "PR_MERGED",
+  "PR_CLOSED",
+  "ISSUE_OPENED",
+  "ISSUE_CLOSED",
+  "PR_COMMENT",
+  "ISSUE_COMMENT",
+  "REVIEW_GIVEN",
+  "REVIEW_COMMENT",
+] as const;
+
+export function kindsSetFromCommaParam(kindsParam: string | null): Set<EventKind> {
+  if (kindsParam == null || kindsParam.trim() === "") {
+    return new Set(ALL_TIMELINE_EVENT_KINDS);
+  }
+  const allowed = new Set<string>(ALL_TIMELINE_EVENT_KINDS);
+  const next = new Set<EventKind>();
+  for (const part of kindsParam.split(",")) {
+    const k = part.trim() as EventKind;
+    if (allowed.has(k)) next.add(k);
+  }
+  return next.size > 0 ? next : new Set(ALL_TIMELINE_EVENT_KINDS);
+}
+
+export function timelineFilterParamsToSearchParams(
+  p: TimelineFilterParams,
+): URLSearchParams {
+  const sp = new URLSearchParams();
+  sp.set("scope", p.scope);
+  sp.set("dateRange", p.dateRange);
+  if (p.orgFilter.trim()) sp.set("org", p.orgFilter.trim());
+  if (p.repoFilter) sp.set("repo", p.repoFilter);
+  const kindsArr = [...p.kinds].sort() as string[];
+  const allOn = kindsArr.length === ALL_TIMELINE_EVENT_KINDS.length;
+  if (!allOn) sp.set("kinds", kindsArr.join(","));
+  return sp;
+}
+
+export function serializeTimelineFilters(p: TimelineFilterParams): string {
+  return JSON.stringify({
+    scope: p.scope,
+    dateRange: p.dateRange,
+    orgFilter: p.orgFilter,
+    repoFilter: p.repoFilter,
+    kinds: [...p.kinds].sort(),
   });
+}
+
+export function parseTimelineFiltersFromSearchParams(
+  sp: URLSearchParams,
+): TimelineFilterParams {
+  const scopeRaw = sp.get("scope");
+  const scope: TimelineScope =
+    scopeRaw === "external" || scopeRaw === "own" ? scopeRaw : "all";
+
+  const dr = sp.get("dateRange");
+  const dateRange: TimelineDateRange =
+    dr === "7d" || dr === "30d" || dr === "90d" || dr === "1y" || dr === "all" ? dr : "90d";
+
+  return {
+    scope,
+    dateRange,
+    kinds: kindsSetFromCommaParam(sp.get("kinds")),
+    orgFilter: sp.get("org") ?? "",
+    repoFilter: sp.get("repo") ?? "",
+  };
+}
+
+export function defaultTimelineFilterParams(): TimelineFilterParams {
+  return {
+    scope: "all",
+    dateRange: "90d",
+    kinds: new Set(ALL_TIMELINE_EVENT_KINDS),
+    orgFilter: "",
+    repoFilter: "",
+  };
+}
+
+/** First timeline paint on `/timeline` — matches `defaultTimelineFilterParams`. */
+export const TIMELINE_INITIAL_LIMIT = 120;
+
+/**
+ * Build slim index + filtered client rows for [offset, offset+limit).
+ * Caller supplies the profile bundle (e.g. from cache).
+ */
+export function buildTimelinePaged(
+  bundle: ProfileBundle,
+  username: string,
+  params: TimelineFilterParams,
+  offset: number,
+  limit: number,
+): {
+  index: TimelineEventIndexItem[];
+  rows: ClientTimelineEvent[];
+  total: number;
+} {
+  const events = buildTimeline(bundle, username);
+  const index = toTimelineEventIndex(events);
+  const filtered = filterTimelineIndex(index, params);
+  const byId = new Map(events.map((e) => [e.id, e]));
+  const window = filtered.slice(offset, offset + limit);
+  const rows = window.map((item) => {
+    const ev = byId.get(item.id);
+    if (!ev) throw new Error(`Missing timeline event for id ${item.id}`);
+    return toClientTimelineEvent(ev);
+  });
+  return { index, rows, total: filtered.length };
 }

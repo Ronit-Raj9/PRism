@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import clsx from "clsx";
 import { html as diff2htmlHtml } from "diff2html";
 import { ColorSchemeType } from "diff2html/lib/types";
-import { FileWarning } from "lucide-react";
+import { ChevronDown, ChevronRight, FileWarning } from "lucide-react";
 import type { PRFile, ReviewCommentNode } from "@/types/github";
 import type { DisplayMode } from "./pr-toolbar";
 import { isLikelyBinary } from "./binary";
@@ -32,14 +38,21 @@ function useIsDark(): boolean {
 interface Props {
   panelRef: React.RefObject<HTMLDivElement | null>;
   sectionRefs: React.RefObject<Map<string, HTMLDivElement>>;
+  suspendActiveObserver: React.RefObject<boolean>;
   files: PRFile[];
   displayMode: DisplayMode;
   loading: boolean;
   error: string | null;
+  /** Still used so the sidebar “viewed” checkbox can hide the diff body. */
   viewed: Set<string>;
-  onToggleViewed: (path: string) => void;
   reviewCommentsByPath: Map<string, ReviewCommentNode[]>;
+  activeFile: string | null;
   onActiveFileChange: (path: string | null) => void;
+  /** Paths whose diff body is hidden by the header chevron (GitHub-style). */
+  collapsedPaths: Set<string>;
+  onToggleCollapsed: (path: string) => void;
+  /** Alt/Option+click on chevron: collapse all or expand all. */
+  onAltCollapseAll: () => void;
 }
 
 // Approximate skeleton height per file before it enters the viewport. Big
@@ -50,19 +63,32 @@ const PLACEHOLDER_HEIGHT_PX = 320;
 export function PRDiffPanel({
   panelRef,
   sectionRefs,
+  suspendActiveObserver,
   files,
   displayMode,
   loading,
   error,
   viewed,
-  onToggleViewed,
   reviewCommentsByPath,
+  activeFile,
   onActiveFileChange,
+  collapsedPaths,
+  onToggleCollapsed,
+  onAltCollapseAll,
 }: Props) {
   // Track which files are near the viewport so we render their diff. This is
   // what keeps a 39-file PR from slamming the renderer with thousands of
   // syntax-highlighted lines on first paint.
   const [renderedSet, setRenderedSet] = useState<Set<string>>(() => new Set());
+
+  const onRequestRender = useCallback((path: string) => {
+    setRenderedSet((prev) => {
+      if (prev.has(path)) return prev;
+      const next = new Set(prev);
+      next.add(path);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const scroller = panelRef.current;
@@ -115,7 +141,7 @@ export function PRDiffPanel({
             bestPath = path;
           }
         }
-        if (bestPath) onActiveFileChange(bestPath);
+        if (bestPath && !suspendActiveObserver.current) onActiveFileChange(bestPath);
       },
       {
         root: scroller,
@@ -135,7 +161,7 @@ export function PRDiffPanel({
       visibilityObserver.disconnect();
       activeObserver.disconnect();
     };
-  }, [files, onActiveFileChange, panelRef, sectionRefs]);
+  }, [files, onActiveFileChange, panelRef, sectionRefs, suspendActiveObserver]);
 
   if (loading) {
     return (
@@ -176,8 +202,13 @@ export function PRDiffPanel({
           file={f}
           displayMode={displayMode}
           isViewed={viewed.has(f.path)}
-          shouldRender={renderedSet.has(f.path)}
-          onToggleViewed={() => onToggleViewed(f.path)}
+          isCollapsed={collapsedPaths.has(f.path)}
+          shouldRender={
+            renderedSet.has(f.path) || (!!activeFile && f.path === activeFile)
+          }
+          onToggleCollapsed={() => onToggleCollapsed(f.path)}
+          onAltCollapseAll={onAltCollapseAll}
+          onRequestRender={() => onRequestRender(f.path)}
           comments={reviewCommentsByPath.get(f.path) ?? []}
           register={(el) => {
             if (el) sectionRefs.current?.set(f.path, el);
@@ -189,20 +220,30 @@ export function PRDiffPanel({
   );
 }
 
+function fileSectionBodyId(path: string): string {
+  return `pr-diff-body-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
 function FileSection({
   file,
   displayMode,
   isViewed,
+  isCollapsed,
   shouldRender,
-  onToggleViewed,
+  onToggleCollapsed,
+  onAltCollapseAll,
+  onRequestRender,
   comments,
   register,
 }: {
   file: PRFile;
   displayMode: DisplayMode;
   isViewed: boolean;
+  isCollapsed: boolean;
   shouldRender: boolean;
-  onToggleViewed: () => void;
+  onToggleCollapsed: () => void;
+  onAltCollapseAll: () => void;
+  onRequestRender: () => void;
   comments: ReviewCommentNode[];
   register: (el: HTMLDivElement | null) => void;
 }) {
@@ -211,14 +252,50 @@ function FileSection({
     file.patch,
   ]);
 
+  const bodyId = fileSectionBodyId(file.path);
+  const skipDiffMount = isCollapsed || isViewed;
+
+  useEffect(() => {
+    if (skipDiffMount || isBinary) return;
+    if (!shouldRender) onRequestRender();
+  }, [skipDiffMount, isBinary, shouldRender, onRequestRender]);
+
   return (
     <div
       ref={register}
       data-path={file.path}
       className="border-b border-neutral-200 dark:border-neutral-800"
     >
-      <div className="pr-file-hdr flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-1.5 text-[11px] dark:border-neutral-800 dark:bg-neutral-900">
-        <span className="truncate font-mono text-neutral-700 dark:text-neutral-300">
+      <button
+        type="button"
+        aria-expanded={!isCollapsed && !isViewed}
+        aria-controls={bodyId}
+        title={
+          isCollapsed
+            ? "Expand diff (click anywhere on this bar; Alt+click: all files)"
+            : "Collapse diff (click anywhere on this bar; Alt+click: all files)"
+        }
+        onClick={(e) => {
+          if (e.altKey) {
+            e.preventDefault();
+            onAltCollapseAll();
+          } else {
+            onToggleCollapsed();
+          }
+        }}
+        className="group pr-file-hdr flex w-full cursor-pointer items-center gap-1.5 border-b border-neutral-200 bg-neutral-50 px-2 py-1.5 text-left text-[11px] text-neutral-800 transition hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800/80 sm:gap-2 sm:px-3"
+      >
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 group-hover:text-neutral-800 dark:group-hover:text-neutral-200"
+          aria-hidden
+        >
+          {isCollapsed ? (
+            <ChevronRight size={16} strokeWidth={2} aria-hidden />
+          ) : (
+            <ChevronDown size={16} strokeWidth={2} aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-neutral-700 dark:text-neutral-300">
           {file.path}
         </span>
         {isBinary ? (
@@ -226,7 +303,7 @@ function FileSection({
             binary
           </span>
         ) : null}
-        <span className="ml-auto flex shrink-0 items-center gap-2">
+        <span className="pointer-events-none ml-auto flex shrink-0 items-center gap-2 tabular-nums">
           {file.additions > 0 ? (
             <span className="text-emerald-600 dark:text-emerald-400">
               +{file.additions}
@@ -237,56 +314,53 @@ function FileSection({
               −{file.deletions}
             </span>
           ) : null}
-          <label className="flex cursor-pointer items-center gap-1 text-neutral-600 dark:text-neutral-400">
-            <input
-              type="checkbox"
-              checked={isViewed}
-              onChange={onToggleViewed}
-              className="h-3 w-3"
-            />
-            Viewed
-          </label>
         </span>
-      </div>
-      {isViewed ? (
-        <div className="bg-neutral-50 px-3 py-2 text-[11px] italic text-neutral-500 dark:bg-neutral-900/40">
-          Marked as viewed. Uncheck to expand.
-        </div>
-      ) : isBinary ? (
-        <BinaryNotice file={file} />
-      ) : !shouldRender ? (
-        <div
-          className="flex items-center justify-center bg-neutral-50/50 text-[11px] italic text-neutral-400 dark:bg-neutral-900/20"
-          style={{ minHeight: PLACEHOLDER_HEIGHT_PX }}
-        >
-          Loading diff…
-        </div>
-      ) : (
-        <FileDiffBody file={file} displayMode={displayMode} />
-      )}
-      {comments.length > 0 && !isViewed ? (
-        <div className="border-t border-neutral-200 bg-neutral-50/60 p-2 dark:border-neutral-800 dark:bg-neutral-900/40">
-          <div className="mb-1 text-[10px] font-medium text-neutral-500">
-            {comments.length} review comment{comments.length === 1 ? "" : "s"}
+      </button>
+      <div id={bodyId}>
+        {isViewed ? (
+          <div className="bg-neutral-50 px-3 py-2 text-[11px] italic text-neutral-500 dark:bg-neutral-900/40">
+            Marked as viewed. Uncheck in the file list to show the diff again.
           </div>
-          <ul className="space-y-1">
-            {comments.map((c, i) => (
-              <li
-                key={i}
-                className="rounded border border-neutral-200 bg-white p-2 text-[11px] dark:border-neutral-800 dark:bg-neutral-950"
-              >
-                <div className="mb-1 font-mono text-[9px] text-neutral-500">
-                  {c.authorLogin ?? "unknown"}
-                  {c.line ? ` · line ${c.line}` : ""}
-                </div>
-                <div className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
-                  {c.body}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        ) : isCollapsed ? (
+          <div className="bg-neutral-50/80 px-3 py-1.5 text-[11px] text-neutral-500 dark:bg-neutral-900/30">
+            Diff collapsed
+          </div>
+        ) : isBinary ? (
+          <BinaryNotice file={file} />
+        ) : !shouldRender ? (
+          <div
+            className="flex items-center justify-center bg-neutral-50/50 text-[11px] italic text-neutral-400 dark:bg-neutral-900/20"
+            style={{ minHeight: PLACEHOLDER_HEIGHT_PX }}
+          >
+            Loading diff…
+          </div>
+        ) : (
+          <FileDiffBody file={file} displayMode={displayMode} />
+        )}
+        {comments.length > 0 && !isViewed && !isCollapsed ? (
+          <div className="border-t border-neutral-200 bg-neutral-50/60 p-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+            <div className="mb-1 text-[10px] font-medium text-neutral-500">
+              {comments.length} review comment{comments.length === 1 ? "" : "s"}
+            </div>
+            <ul className="space-y-1">
+              {comments.map((c, i) => (
+                <li
+                  key={i}
+                  className="rounded border border-neutral-200 bg-white p-2 text-[11px] dark:border-neutral-800 dark:bg-neutral-950"
+                >
+                  <div className="mb-1 font-mono text-[9px] text-neutral-500">
+                    {c.authorLogin ?? "unknown"}
+                    {c.line ? ` · line ${c.line}` : ""}
+                  </div>
+                  <div className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+                    {c.body}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -354,7 +428,12 @@ function FileDiffBody({
 
   return (
     <div
-      className={clsx("diff-container overflow-x-auto text-xs")}
+      className={clsx(
+        "diff-container text-xs",
+        displayMode === "split"
+          ? "diff-container--split"
+          : "overflow-x-auto",
+      )}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

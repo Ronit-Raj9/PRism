@@ -1,7 +1,6 @@
 "use client";
 
-import { Search, ArrowDownAZ, Star, Activity, Code2 } from "lucide-react";
-import clsx from "clsx";
+import { Search } from "lucide-react";
 
 export type RepoSort = "activity" | "stars" | "alpha" | "loc";
 
@@ -12,47 +11,45 @@ interface Props {
   setSort: (s: RepoSort) => void;
 }
 
-const SORTS: { id: RepoSort; label: string; Icon: typeof Star }[] = [
-  { id: "activity", label: "Activity", Icon: Activity },
-  { id: "stars", label: "Stars", Icon: Star },
-  { id: "alpha", label: "Name", Icon: ArrowDownAZ },
-  { id: "loc", label: "LOC", Icon: Code2 },
-];
+const SORT_LABEL: Record<RepoSort, string> = {
+  activity: "Most active",
+  stars: "Most stars",
+  alpha: "Name A–Z",
+  loc: "Most changed lines",
+};
 
 export function SidebarControls({ filter, setFilter, sort, setSort }: Props) {
   return (
-    <div className="space-y-1.5 border-t border-neutral-200 px-3 py-2 dark:border-neutral-800">
+    <div className="space-y-2 border-t border-[var(--border)] px-4 py-3">
       <div className="relative">
         <Search
-          size={11}
-          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500"
+          size={14}
+          strokeWidth={1.75}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
         />
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter repos…"
-          className="w-full rounded border border-neutral-300 bg-white py-1 pl-6 pr-2 text-[11px] outline-none transition focus:border-blue-500 dark:border-neutral-700 dark:bg-neutral-900"
+          placeholder="Search repositories"
+          className="ui-input w-full py-2.5 pl-9 pr-3 text-xs"
         />
       </div>
-      <div className="flex gap-0.5 rounded border border-neutral-200 bg-neutral-50 p-0.5 text-[10px] dark:border-neutral-800 dark:bg-neutral-900">
-        {SORTS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            onClick={() => setSort(id)}
-            title={`Sort by ${label.toLowerCase()}`}
-            className={clsx(
-              "flex flex-1 items-center justify-center gap-0.5 rounded px-1 py-0.5 transition",
-              sort === id
-                ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-                : "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800",
-            )}
-          >
-            <Icon size={9} />
-            {label}
-          </button>
+      <label className="sr-only" htmlFor="repo-sort">
+        Sort repositories
+      </label>
+      <select
+        id="repo-sort"
+        value={sort}
+        onChange={(e) => setSort(e.target.value as RepoSort)}
+        className="ui-select text-xs"
+      >
+        {(Object.keys(SORT_LABEL) as RepoSort[]).map((id) => (
+          <option key={id} value={id}>
+            {SORT_LABEL[id]}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }

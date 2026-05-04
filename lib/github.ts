@@ -24,9 +24,21 @@ import type {
   ContributionStats,
 } from "@/types/github";
 
-const MAX_PR_PAGES = 20; // up to 1000 PRs per profile
-const MAX_ISSUE_PAGES = 10; // up to 500 issues per profile
+const MAX_PR_PAGES = 18; // up to 900 PRs per profile
+const MAX_ISSUE_PAGES = 9; // up to 450 issues per profile
 const MAX_REPO_PAGES = 5; // up to 250 contributed repos
+
+/** Small pause between GraphQL pages to avoid bursting the API. */
+const GRAPHQL_PAGE_GAP_MS = 65;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Dedupe concurrent cold fetches for the same login (cache miss). */
+const profileLiveInflight = new Map<string, Promise<ProfileBundle>>();
 
 function token(): string {
   const t = process.env.GITHUB_TOKEN;
@@ -305,6 +317,7 @@ async function fetchAllPRs(login: string): Promise<{ prs: PRNode[]; rateLimit: R
   let cursor: string | null = null;
   let rateLimit: RateLimitInfo = { remaining: 0, resetAt: "" };
   for (let i = 0; i < MAX_PR_PAGES; i++) {
+    if (i > 0) await sleep(GRAPHQL_PAGE_GAP_MS);
     const data: PRPageResult = await gql()(PR_PAGE_QUERY, { login, cursor });
     if (!data.user) break;
     all.push(...data.user.pullRequests.nodes.map(mapPR));
@@ -320,6 +333,7 @@ async function fetchAllIssues(login: string): Promise<{ issues: IssueNode[]; rat
   let cursor: string | null = null;
   let rateLimit: RateLimitInfo = { remaining: 0, resetAt: "" };
   for (let i = 0; i < MAX_ISSUE_PAGES; i++) {
+    if (i > 0) await sleep(GRAPHQL_PAGE_GAP_MS);
     const data: IssuePageResult = await gql()(ISSUE_PAGE_QUERY, { login, cursor });
     if (!data.user) break;
     all.push(...data.user.issues.nodes.map(mapIssue));
@@ -335,6 +349,7 @@ async function fetchContributedRepos(login: string): Promise<{ repos: Contribute
   let cursor: string | null = null;
   let rateLimit: RateLimitInfo = { remaining: 0, resetAt: "" };
   for (let i = 0; i < MAX_REPO_PAGES; i++) {
+    if (i > 0) await sleep(GRAPHQL_PAGE_GAP_MS);
     const data: RepoPageResult = await gql()(CONTRIBUTED_REPOS_QUERY, { login, cursor });
     if (!data.user) break;
     all.push(
@@ -371,9 +386,21 @@ export async function getProfileBundle(username: string): Promise<FetchResult> {
     return { bundle: cached.data, cacheState: "stale" };
   }
 
-  const bundle = await fetchProfileBundleLive(username);
+  const bundle = await getOrFetchProfileBundleLive(username);
   await setCachedProfile(username, bundle);
   return { bundle, cacheState: "miss" };
+}
+
+async function getOrFetchProfileBundleLive(username: string): Promise<ProfileBundle> {
+  const key = username.toLowerCase();
+  let p = profileLiveInflight.get(key);
+  if (!p) {
+    p = fetchProfileBundleLive(username).finally(() => {
+      profileLiveInflight.delete(key);
+    });
+    profileLiveInflight.set(key, p);
+  }
+  return p;
 }
 
 async function fetchProfileBundleLive(username: string): Promise<ProfileBundle> {
@@ -391,11 +418,9 @@ async function fetchProfileBundleLive(username: string): Promise<ProfileBundle> 
   }
   if (!profile) throw new GitHubError(`User '${username}' not found`, 404);
 
-  const [{ prs }, { issues }, { repos, rateLimit }] = await Promise.all([
-    fetchAllPRs(username),
-    fetchAllIssues(username),
-    fetchContributedRepos(username),
-  ]);
+  const { prs } = await fetchAllPRs(username);
+  const { issues } = await fetchAllIssues(username);
+  const { repos, rateLimit } = await fetchContributedRepos(username);
 
   return {
     user: profile.user,

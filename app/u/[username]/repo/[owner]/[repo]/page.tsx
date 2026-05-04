@@ -35,41 +35,41 @@ export default async function RepoPage({ params }: PageProps) {
   );
 
   return (
-    <div className="app-main-scroll">
-      <div className="mx-auto max-w-6xl px-6 py-6">
-        <nav className="mb-3 flex items-center gap-2 text-[12px] text-neutral-500">
+    <div className="app-main-scroll scrollbar-thin">
+      <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 sm:py-12">
+        <nav className="mb-4 flex items-center gap-2 text-xs text-[var(--muted)]">
           <Link
             href={`/u/${username}`}
-            className="hover:text-neutral-900 dark:hover:text-neutral-200"
+            className="hover:text-[var(--foreground)]"
           >
             {username}
           </Link>
           <span>›</span>
           <Link
             href={`/u/${username}/org/${owner}`}
-            className="font-mono hover:text-neutral-900 dark:hover:text-neutral-200"
+            className="font-mono hover:text-[var(--foreground)]"
           >
             {owner}
           </Link>
           <span>›</span>
-          <span className="font-mono text-neutral-700 dark:text-neutral-300">
+          <span className="font-mono text-[var(--foreground)]">
             {repo}
           </span>
         </nav>
         <div className="mb-1 flex items-baseline gap-3">
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-2xl font-semibold tracking-tight">
             <span className="font-mono">{repoKey}</span>
           </h1>
           <a
             href={`https://github.com/${repoKey}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+            className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
           >
             GitHub ↗
           </a>
         </div>
-        <p className="mb-6 text-sm text-neutral-500">
+        <p className="mb-8 text-sm text-[var(--muted)]">
           {username}&apos;s contributions to {repoKey}.
         </p>
         <RepoDashboard
