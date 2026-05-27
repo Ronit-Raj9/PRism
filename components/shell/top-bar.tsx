@@ -36,7 +36,7 @@ export function TopBar({
         href="/"
         className="hidden shrink-0 text-sm font-semibold tracking-tight text-[var(--foreground)] sm:block"
       >
-        GitScope
+        GitGambit
       </Link>
       <div data-topbar-search className="min-w-0 flex-1">
         <SearchBar initial={username} variant="shell" />
@@ -115,7 +115,7 @@ function ThemeToggle() {
     if (next) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
     try {
-      localStorage.setItem("gitscope-theme", next ? "dark" : "light");
+      localStorage.setItem("gitgambit-theme", next ? "dark" : "light");
     } catch {}
   }
   return (

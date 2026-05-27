@@ -27,7 +27,7 @@ export default async function HomePage() {
         <header className="border-b border-[var(--border)] bg-[var(--surface)]/85 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-4 px-5 py-4 sm:px-8">
             <Link href="/" className="text-sm font-semibold tracking-tight text-[var(--foreground)]">
-              GitScope
+              GitGambit
             </Link>
             <div className="min-w-0 flex-1">
               <SearchBar variant="shell" />
@@ -135,7 +135,7 @@ export default async function HomePage() {
   return (
     <main className="flex min-h-[calc(100vh-0px)] flex-col px-5 py-16 sm:px-8">
       <div className="mx-auto w-full max-w-2xl flex-1 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--muted)]">GitScope</p>
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--muted)]">GitGambit</p>
         <h1 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
           One place for a developer&apos;s public GitHub story
         </h1>

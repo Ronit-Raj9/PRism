@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-const STORAGE_NOTIFY = "gitscope-storage-write";
+const STORAGE_NOTIFY = "gitgambit-storage-write";
 
 function notifyStorageKey(key: string) {
   window.dispatchEvent(new CustomEvent(STORAGE_NOTIFY, { detail: { key } }));

@@ -1,7 +1,7 @@
 import type { ProfileSummary } from "./insights-summary";
 
 /**
- * GitScope Score: 0-100 composite signal across 5 sub-scores.
+ * GitGambit Score: 0-100 composite signal across 5 sub-scores.
  *
  * Each sub-score is a weighted average of normalized metrics. Inputs are
  * mapped to a 0-100 scale using fixed thresholds (no DB-wide percentile yet
@@ -12,7 +12,7 @@ import type { ProfileSummary } from "./insights-summary";
  * Thresholds are tuned for active OSS contributors; tweak as we collect
  * real distribution data.
  */
-export interface GitScopeScore {
+export interface GitGambitScore {
   overall: number;
   velocity: number;
   quality: number;
@@ -40,7 +40,7 @@ function bandDown(v: number, best: number, worst: number): number {
   return clamp(((worst - v) / (worst - best)) * 100);
 }
 
-export function computeGitScopeScore(s: ProfileSummary): GitScopeScore {
+export function computeGitGambitScore(s: ProfileSummary): GitGambitScore {
   // Velocity: merge rate, time-to-merge, PR throughput
   const mergeRateScore = bandUp(s.mergeRate, 0.4, 0.95);
   const ttmScore =

@@ -12,7 +12,7 @@ export interface Archetype {
  * since that produces the most distinctive label.
  *
  * Thresholds were chosen from the OSS-contributor distributions described
- * in the GitScope spec. They're easy to tune without changing call sites.
+ * in the GitGambit spec. They're easy to tune without changing call sites.
  */
 export function detectArchetype(s: ProfileSummary): Archetype {
   const ext = s.externalRatio;

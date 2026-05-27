@@ -8,8 +8,8 @@ import { Sidebar } from "./sidebar";
 import type { RepoTreeGroup } from "./repo-tree";
 import { useStoredValue } from "./use-stored-value";
 
-const SIDEBAR_WIDTH_KEY = "gitscope-sidebar-w";
-const SIDEBAR_OPEN_KEY = "gitscope-sidebar-open";
+const SIDEBAR_WIDTH_KEY = "gitgambit-sidebar-w";
+const SIDEBAR_OPEN_KEY = "gitgambit-sidebar-open";
 const DEFAULT_W = 280;
 const MIN_W = 200;
 const MAX_W = 480;

@@ -6,14 +6,14 @@ import path from "node:path";
 import * as schema from "./schema";
 
 declare global {
-  var __gitscope_db: ReturnType<typeof drizzle<typeof schema>> | undefined;
-  var __gitscope_db_migrated: boolean | undefined;
+  var __gitgambit_db: ReturnType<typeof drizzle<typeof schema>> | undefined;
+  var __gitgambit_db_migrated: boolean | undefined;
 }
 
 function resolveDbPath(): string {
   // Vercel lambdas mount the project read-only; /tmp is the only writable dir.
-  if (process.env.VERCEL) return "/tmp/gitscope.db";
-  const url = process.env.DATABASE_URL ?? "file:./gitscope.db";
+  if (process.env.VERCEL) return "/tmp/gitgambit.db";
+  const url = process.env.DATABASE_URL ?? "file:./gitgambit.db";
   const filePath = url.replace(/^file:/, "");
   return path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
 }
@@ -59,6 +59,6 @@ function createDb() {
   return db;
 }
 
-export const db = globalThis.__gitscope_db ?? createDb();
-if (process.env.NODE_ENV !== "production") globalThis.__gitscope_db = db;
-if (!globalThis.__gitscope_db_migrated) globalThis.__gitscope_db_migrated = true;
+export const db = globalThis.__gitgambit_db ?? createDb();
+if (process.env.NODE_ENV !== "production") globalThis.__gitgambit_db = db;
+if (!globalThis.__gitgambit_db_migrated) globalThis.__gitgambit_db_migrated = true;

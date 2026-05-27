@@ -29,7 +29,7 @@ interface Props {
 export function PRView({ pr, username, prev, next }: Props) {
   const [owner, repoName] = pr.repo.nameWithOwner.split("/");
   const [sub, setSub] = useState<PRSubTab>("files");
-  const [displayPref, writeDisplay] = useStoredValue("gitscope-display-mode");
+  const [displayPref, writeDisplay] = useStoredValue("gitgambit-display-mode");
   const displayMode: DisplayMode = displayPref === "split" ? "split" : "unified";
   const [filter, setFilter] = useState("");
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -38,9 +38,9 @@ export function PRView({ pr, username, prev, next }: Props) {
   const suspendActiveObserver = useRef(false);
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
-  const viewedKey = `gitscope-viewed:${pr.repo.nameWithOwner}#${pr.number}`;
+  const viewedKey = `gitgambit-viewed:${pr.repo.nameWithOwner}#${pr.number}`;
   const [viewed, writeViewed] = useSessionSet(viewedKey);
-  const collapsedKey = `gitscope-diff-collapsed:${pr.repo.nameWithOwner}#${pr.number}`;
+  const collapsedKey = `gitgambit-diff-collapsed:${pr.repo.nameWithOwner}#${pr.number}`;
   const [collapsedPaths, writeCollapsed] = useSessionSet(collapsedKey);
 
   // Diff state, keyed by `${owner}/${repo}#${number}`. Resetting on PR change

@@ -3,7 +3,7 @@ import { GitPullRequest } from "lucide-react";
 import { GitHubError } from "@/lib/github";
 import { getProfileBundleCached } from "@/lib/profile";
 import { computeProfileInsights, type ProfileSummary } from "@/lib/insights-summary";
-import { computeGitScopeScore } from "@/lib/gitscope-score";
+import { computeGitGambitScore } from "@/lib/gitgambit-score";
 import { detectArchetype } from "@/lib/archetype";
 import { CompareGrid } from "@/components/compare/compare-grid";
 import { CompareInput } from "@/components/compare/compare-input";
@@ -39,7 +39,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
       try {
         const r = await getProfileBundleCached(u);
         const summary = computeProfileInsights(r.bundle, r.bundle.user.login);
-        const score = computeGitScopeScore(summary);
+        const score = computeGitGambitScore(summary);
         const archetype = detectArchetype(summary);
         return {
           username: u,
@@ -76,7 +76,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
           className="mr-1 flex items-center gap-1.5 text-sm font-semibold tracking-tight"
         >
           <GitPullRequest size={14} className="text-violet-500" />
-          GitScope
+          GitGambit
         </Link>
         <span className="text-xs text-neutral-500">/ Compare</span>
       </header>

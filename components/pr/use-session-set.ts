@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
-const EVENT = "gitscope-session-set";
+const EVENT = "gitgambit-session-set";
 
 type DetailEvent = CustomEvent<{ key: string }>;
 

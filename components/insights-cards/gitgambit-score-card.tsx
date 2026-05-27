@@ -1,6 +1,6 @@
-import type { GitScopeScore } from "@/lib/gitscope-score";
+import type { GitGambitScore } from "@/lib/gitgambit-score";
 
-export function GitScopeScoreCard({ score }: { score: GitScopeScore }) {
+export function GitGambitScoreCard({ score }: { score: GitGambitScore }) {
   const subs: { label: string; value: number }[] = [
     { label: "Velocity", value: score.velocity },
     { label: "Quality", value: score.quality },
@@ -13,7 +13,7 @@ export function GitScopeScoreCard({ score }: { score: GitScopeScore }) {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-            GitScope Score
+            GitGambit Score
           </div>
           <div className="mt-1 text-3xl font-bold tabular-nums">
             {score.overall}

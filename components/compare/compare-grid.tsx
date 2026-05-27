@@ -3,13 +3,13 @@ import Image from "next/image";
 import { TrendingUp } from "lucide-react";
 import type { ProfileSummary } from "@/lib/insights-summary";
 import { fmtDurationMs } from "@/lib/insights-summary";
-import type { GitScopeScore } from "@/lib/gitscope-score";
+import type { GitGambitScore } from "@/lib/gitgambit-score";
 import type { Archetype } from "@/lib/archetype";
 
 interface CompareResult {
   username: string;
   summary: ProfileSummary | null;
-  score: GitScopeScore | null;
+  score: GitGambitScore | null;
   archetype: Archetype | null;
   error: string | null;
 }
@@ -136,7 +136,7 @@ export function CompareGrid({ results }: Props) {
             style={{ gridTemplateColumns: grid }}
           >
             <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-              GitScope Score
+              GitGambit Score
             </div>
             {results.map((_, i) => (
               <div key={i} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import type { PRNode } from "@/types/github";
 
 /**
@@ -51,28 +51,31 @@ export function LanguageBreakdown({ prs }: { prs: PRNode[] }) {
     <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <h3 className="mb-3 text-sm font-semibold">Languages (by lines changed)</h3>
       <div className="flex items-center gap-4">
-        <div className="h-40 w-40 shrink-0">
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={35}
-                outerRadius={70}
-                paddingAngle={1}
-              >
-                {data.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ fontSize: 12 }}
-                formatter={(v) => `${Number(v).toLocaleString()} LOC`}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {/* PieChart with explicit pixel dimensions — no ResponsiveContainer.
+            ResponsiveContainer measures its parent via ResizeObserver and
+            logs `width(-1) and height(-1)` at hydration whenever the parent
+            isn't laid out yet. We don't need responsive sizing here (the
+            container is a fixed h-40 w-40), so render the chart directly. */}
+        <PieChart width={160} height={160} className="shrink-0">
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx={80}
+            cy={80}
+            innerRadius={35}
+            outerRadius={70}
+            paddingAngle={1}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{ fontSize: 12 }}
+            formatter={(v) => `${Number(v).toLocaleString()} LOC`}
+          />
+        </PieChart>
         <ul className="flex-1 space-y-1 text-xs">
           {data.map((d, i) => (
             <li key={d.name} className="flex items-center gap-2">

@@ -21,7 +21,7 @@ interface Props {
   savedList: SavedItem[];
 }
 
-const COLLAPSED_KEY = "gitscope-sidebar-collapsed-sections";
+const COLLAPSED_KEY = "gitgambit-sidebar-collapsed-sections";
 
 export function Sidebar({
   user,
@@ -76,7 +76,7 @@ export function Sidebar({
         <RepoTree
           username={username}
           groups={filteredExternal}
-          storageKey="gitscope-tree-ext"
+          storageKey="gitgambit-tree-ext"
         />
       </SidebarSection>
 
@@ -92,7 +92,7 @@ export function Sidebar({
           <RepoTree
             username={username}
             groups={filteredOwn}
-            storageKey="gitscope-tree-own"
+            storageKey="gitgambit-tree-own"
           />
         </SidebarSection>
       ) : null}

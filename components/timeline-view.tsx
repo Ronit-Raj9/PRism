@@ -1,6 +1,5 @@
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { Component, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -61,6 +60,16 @@ export function TimelineView({
   const [listRefreshing, setListRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  // Single-expand: only one row mounts an EventBody at a time. Holding it on
+  // the parent (instead of per-row local state) means opening row N implicitly
+  // closes row M, so memory stays bounded no matter how many rows the user
+  // clicks. Per-row state also broke under virtualization — a row scrolled
+  // out of view (but still in overscan) kept its EventBody mounted, and
+  // opening another one stacked on top.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }, []);
   const listParentRef = useRef<HTMLDivElement>(null);
 
   const filterParams = useMemo<TimelineFilterParams>(
@@ -100,6 +109,9 @@ export function TimelineView({
 
     async function refreshList() {
       setListError(null);
+      // Drop any expanded row whenever the list itself is rebuilt — its id
+      // may not be in the new rows.
+      setExpandedId(null);
       if (enabledKinds.size === 0) {
         if (!alive) return;
         setRows([]);
@@ -160,15 +172,6 @@ export function TimelineView({
     username,
     filterParams,
   ]);
-
-  // TanStack Virtual opts out of React Compiler memoization by design.
-  // eslint-disable-next-line react-hooks/incompatible-library -- windowed list
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => listParentRef.current,
-    estimateSize: () => 112,
-    overscan: 10,
-  });
 
   const loadMore = useCallback(async () => {
     if (enabledKinds.size === 0 || rows.length >= totalMatching || loadingMore || listRefreshing) return;
@@ -349,31 +352,29 @@ export function TimelineView({
           Loading events…
         </div>
       ) : (
+        // Plain (non-virtualized) list. Earlier this used TanStack Virtual,
+        // but on this dataset (initial limit 120 rows, typical page ~22 rows)
+        // virtualization is overkill — and its per-row ResizeObservers plus
+        // its synchronous flushSync re-render on measurement caused the
+        // browser to hang when a row's height changed on expand. A plain
+        // scroll container has no measurement feedback loop.
         <div
           ref={listParentRef}
           className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] scrollbar-thin"
           role="list"
         >
-          <div
-            className="relative w-full"
-            style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-          >
-            {rowVirtualizer.getVirtualItems().map((vi) => {
-              const e = rows[vi.index];
-              if (!e) return null;
-              return (
-                <div
-                  key={vi.key}
-                  data-index={vi.index}
-                  ref={rowVirtualizer.measureElement}
-                  className="absolute left-0 top-0 w-full border-b border-[var(--border)]"
-                  style={{ transform: `translateY(${vi.start}px)` }}
-                >
-                  <EventCard event={e} />
-                </div>
-              );
-            })}
-          </div>
+          {rows.map((e) => (
+            <div
+              key={e.id}
+              className="border-b border-[var(--border)] last:border-b-0"
+            >
+              <EventCard
+                event={e}
+                expanded={expandedId === e.id}
+                onToggle={toggleExpanded}
+              />
+            </div>
+          ))}
         </div>
       )}
 
@@ -395,9 +396,13 @@ export function TimelineView({
   );
 }
 
-const EventCard = memo(function EventCard({ event }: { event: ClientTimelineEvent }) {
-  const [open, setOpen] = useState(false);
+interface EventCardProps {
+  event: ClientTimelineEvent;
+  expanded: boolean;
+  onToggle: (id: string) => void;
+}
 
+const EventCard = memo(function EventCard({ event, expanded, onToggle }: EventCardProps) {
   const at = useMemo(() => new Date(event.atIso), [event.atIso]);
   const expandable = event.expandable;
 
@@ -416,7 +421,7 @@ const EventCard = memo(function EventCard({ event }: { event: ClientTimelineEven
         aria-hidden
       >
         {expandable ? (
-          open ? (
+          expanded ? (
             <ChevronDown size={16} strokeWidth={2} className="shrink-0" />
           ) : (
             <ChevronRight size={16} strokeWidth={2} className="shrink-0" />
@@ -448,9 +453,9 @@ const EventCard = memo(function EventCard({ event }: { event: ClientTimelineEven
       {expandable ? (
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={open ? "Collapse event details" : "Expand event details"}
+          onClick={() => onToggle(event.id)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse event details" : "Expand event details"}
           className="flex w-full cursor-pointer items-start gap-2 px-1 py-3 text-left transition hover:bg-[var(--surface-2)]/60 sm:gap-3 sm:px-2 sm:py-3.5"
         >
           {rowInner}
@@ -460,7 +465,7 @@ const EventCard = memo(function EventCard({ event }: { event: ClientTimelineEven
           {rowInner}
         </div>
       )}
-      {open && expandable ? (
+      {expanded && expandable ? (
         <RowErrorBoundary>
           <EventBody event={event} />
         </RowErrorBoundary>

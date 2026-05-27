@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GitScope — GitHub Profile Intelligence",
+  title: "GitGambit — GitHub Profile Intelligence",
   description:
     "Surface a developer's complete public GitHub footprint: external OSS contributions, PRs, code diffs, comments, and issues — all in one unified view.",
 };
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 const themeScript = `
 (function(){
   try {
-    var stored = localStorage.getItem('gitscope-theme');
+    var stored = localStorage.getItem('gitgambit-theme');
     var dark = stored === 'dark' || (stored === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
     if (dark) document.documentElement.classList.add('dark');
   } catch(e) {}

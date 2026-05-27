@@ -37,7 +37,12 @@ export default async function TimelinePage({ params }: PageProps) {
   const initialFilterKey = serializeTimelineFilters(initialParams);
 
   return (
-    <div className="app-main-scroll scrollbar-thin flex min-h-0 flex-col">
+    // No `app-main-scroll` (overflow-y-auto) here: we want the virtualizer's
+    // own scroll container to be the *only* scroll element on the page.
+    // Nesting two `overflow-y-auto` containers caused ResizeObservers from
+    // the inner rows + scroll observers from both containers to interact in a
+    // way that ballooned memory on row-expand clicks (Chrome OOM → SIGILL).
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-[min(92rem,calc(100vw-1.25rem))] flex-1 flex-col px-4 py-3 sm:px-5 sm:py-4">
         <header className="shrink-0 border-b border-[var(--border)] pb-3">
           <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted)]">

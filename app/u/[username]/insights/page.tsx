@@ -3,11 +3,11 @@ import { GitHubError } from "@/lib/github";
 import { getProfileBundleCached } from "@/lib/profile";
 import { buildTimeline } from "@/lib/timeline";
 import { computeProfileInsights } from "@/lib/insights-summary";
-import { computeGitScopeScore } from "@/lib/gitscope-score";
+import { computeGitGambitScore } from "@/lib/gitgambit-score";
 import { detectArchetype } from "@/lib/archetype";
 import { InsightsTab } from "@/components/insights-tab";
 import { ArchetypeCard } from "@/components/insights-cards/archetype-card";
-import { GitScopeScoreCard } from "@/components/insights-cards/gitscope-score-card";
+import { GitGambitScoreCard } from "@/components/insights-cards/gitgambit-score-card";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function InsightsPage({ params }: PageProps) {
   const events = buildTimeline(result.bundle, result.bundle.user.login);
   const summary = computeProfileInsights(result.bundle, result.bundle.user.login);
   const archetype = detectArchetype(summary);
-  const score = computeGitScopeScore(summary);
+  const score = computeGitGambitScore(summary);
 
   return (
     <div className="app-main-scroll scrollbar-thin">
@@ -40,7 +40,7 @@ export default async function InsightsPage({ params }: PageProps) {
         </header>
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ArchetypeCard archetype={archetype} />
-          <GitScopeScoreCard score={score} />
+          <GitGambitScoreCard score={score} />
         </div>
         <InsightsTab
           bundle={result.bundle}
